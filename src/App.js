@@ -1,410 +1,712 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
+import Select from 'react-select';
+
+// Helper functions
+function randomDueDateForExecute(execute) {
+  const today = new Date();
+  const days = execute === 'Monthly' ? 30 : execute === 'Weekly' ? 7 : 14;
+  const futureDate = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
+  return futureDate.toISOString().split('T')[0];
+}
+
+function generateSamplePhases(team) {
+  const phases = [
+    { name: 'Outstanding', items: [] },
+    { name: 'Review/Discussion', items: [] },
+    { name: 'In Process', items: [] },
+    { name: 'Resolved', items: [] }
+  ];
+
+  const sampleTasks = [
+    { goal: 'Design UI/UX', need: randomDueDateForExecute('Monthly'), comments: 'Wireframes needed', execute: 'Monthly', stage: 'Outstanding', commentArea: 'Use Figma', assigned_to: team.length > 0 ? team[0].username : 'team' },
+    { goal: 'Plan architecture', need: randomDueDateForExecute('One-Time'), comments: 'Tech stack decision', execute: 'One-Time', stage: 'Review/Discussion', commentArea: 'React + Node.js', assigned_to: team.length > 1 ? team[1].username : 'team' },
+    { goal: 'Build frontend', need: randomDueDateForExecute('Weekly'), comments: 'React setup', execute: 'Weekly', stage: 'In Process', commentArea: 'Use Tailwind', assigned_to: team.length > 0 ? team[0].username : 'team' },
+    { goal: 'Test core features', need: randomDueDateForExecute('One-Time'), comments: 'User feedback', execute: 'One-Time', stage: 'Resolved', commentArea: 'Internal testers', assigned_to: team.length > 1 ? team[1].username : 'team' }
+  ];
+
+  sampleTasks.forEach(task => {
+    const phase = phases.find(p => p.name === task.stage);
+    if (phase) {
+      phase.items.push({ ...task, id: Date.now() + Math.random() });
+    }
+  });
+
+  return phases;
+}
+
+function loadPhases() {
+  const saved = localStorage.getItem('phases');
+  return saved ? JSON.parse(saved) : null;
+}
+
+function savePhases(phases) {
+  localStorage.setItem('phases', JSON.stringify(phases));
+}
+
+function loadTeam() {
+  const saved = localStorage.getItem('team');
+  return saved ? JSON.parse(saved) : [
+    { id: 1, username: 'John Doe', email: 'john@example.com', org: 'PHG' },
+    { id: 2, username: 'Jane Smith', email: 'jane@example.com', org: 'PHG' }
+  ];
+}
+
+function saveTeam(team) {
+  localStorage.setItem('team', JSON.stringify(team));
+}
+
+// Tooltip component
+function SmartTooltip({ children, content }) {
+  const [show, setShow] = useState(false);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const cellRef = useRef();
+
+  useEffect(() => {
+    if (cellRef.current) {
+      setIsTruncated(cellRef.current.scrollWidth > cellRef.current.clientWidth);
+    }
+  }, [content, children]);
+
+  return (
+    <span
+      ref={cellRef}
+      style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', verticalAlign: 'middle', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: isTruncated ? 'pointer' : 'default' }}
+      onMouseEnter={() => isTruncated && setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      tabIndex={0}
+    >
+      {children}
+      {show && isTruncated && (
+        <div style={{
+          position: 'absolute',
+          left: '50%',
+          top: '100%',
+          transform: 'translateX(-50%)',
+          marginTop: 8,
+          background: '#222',
+          color: '#fff',
+          padding: '10px 16px',
+          borderRadius: 8,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+          zIndex: 9999,
+          minWidth: 180,
+          maxWidth: 400,
+          fontSize: 15,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}>
+          {content}
+        </div>
+      )}
+    </span>
+  );
+}
+
+// Replace SmartTooltip with ExpandingCell
+function ExpandingCell({ children, editable, value, onChange }) {
+  const [hovered, setHovered] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+  const [boxPos, setBoxPos] = useState(null);
+  const inputRef = useRef();
+  const cellRef = useRef();
+
+  useEffect(() => {
+    setEditValue(value);
+  }, [value]);
+
+  // Save on blur or Enter
+  const handleSave = () => {
+    if (editValue !== value) {
+      onChange && onChange(editValue);
+    }
+    setEditing(false);
+  };
+
+  // Focus textarea when entering edit mode
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [editing]);
+
+  // Calculate pop-out position on hover or edit
+  useEffect(() => {
+    if ((hovered || editing) && cellRef.current) {
+      const rect = cellRef.current.getBoundingClientRect();
+      setBoxPos({
+        left: rect.left + window.scrollX,
+        top: rect.top + window.scrollY,
+        width: rect.width,
+        height: rect.height
+      });
+    } else {
+      setBoxPos(null);
+    }
+  }, [hovered, editing]);
+
+  // The floating pop-out box
+  const popout = (hovered || editing) && boxPos ? ReactDOM.createPortal(
+    <div
+      style={{
+        position: 'absolute',
+        left: boxPos.left,
+        top: boxPos.top,
+        width: 540,
+        minWidth: 300,
+        maxWidth: 540,
+        minHeight: boxPos.height,
+        maxHeight: 220,
+        background: '#fffbe6',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
+        borderRadius: 8,
+        zIndex: 9999,
+        padding: 12,
+        fontSize: 15,
+        textAlign: 'left',
+        overflow: 'auto',
+        whiteSpace: 'pre-wrap',
+        transition: 'all 0.2s cubic-bezier(.4,2,.6,1)',
+      }}
+      onMouseLeave={() => { setHovered(false); setEditing(false); }}
+      onClick={e => e.stopPropagation()}
+    >
+      {editing ? (
+        <textarea
+          ref={inputRef}
+          value={editValue || ''}
+          onChange={e => setEditValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { inputRef.current.blur(); e.preventDefault(); } }}
+          style={{ width: '100%', minHeight: 40, maxHeight: 200, fontSize: 15, padding: 6, borderRadius: 4, border: '1px solid #ccc', background: '#fff', resize: 'vertical', boxSizing: 'border-box', textAlign: 'left', overflow: 'auto' }}
+        />
+      ) : (
+        <div style={{ width: '100%', minHeight: 40, maxHeight: 200, overflowY: 'auto', cursor: editable ? 'pointer' : 'default' }}
+          onClick={() => { if (editable) setEditing(true); }}
+        >
+          {editValue || <span style={{ color: '#aaa' }}>(No content)</span>}
+        </div>
+      )}
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <td
+      ref={cellRef}
+      style={{
+        minWidth: 120,
+        maxWidth: 180,
+        width: 180,
+        minHeight: 40,
+        maxHeight: 40,
+        verticalAlign: 'top',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        background: 'transparent',
+        position: 'relative',
+        zIndex: 1,
+        padding: '8px',
+        fontSize: 15,
+        textAlign: 'left',
+        cursor: editable ? 'pointer' : 'default',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setEditing(false); }}
+      tabIndex={0}
+    >
+      <span style={{ display: 'block', width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxHeight: 40 }}>{children}</span>
+      {popout}
+    </td>
+  );
+}
 
 function App() {
-  const [phases, setPhases] = useState([]);
-  const [team, setTeam] = useState([]);
+  const [team, setTeam] = useState(loadTeam());
+  const [phases, setPhases] = useState(() => loadPhases() || generateSamplePhases(loadTeam()));
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
+  const [org, setOrg] = useState("PHG");
   const [newTask, setNewTask] = useState({
-    phase: "Design",
+    phase: "Outstanding",
     goal: "",
     need: "",
     comments: "",
     execute: "N",
-    stage: "review",
+    stage: "Outstanding",
     commentArea: "",
     assigned_to: "team"
   });
+  const [notWorkingPrompt, setNotWorkingPrompt] = useState(null);
+  const [reassignTo, setReassignTo] = useState("");
+  const [clientName, setClientName] = useState(() => localStorage.getItem('clientName') || '');
+  const [filterMember, setFilterMember] = useState([]);
+  const [filterStatus, setFilterStatus] = useState([]);
+  const [sortByStatus, setSortByStatus] = useState(false);
 
-  // Debounced update function
-  const debouncedUpdate = React.useRef(null);
-  const debouncedUpdatePhaseItem = (id, phase, updatedItem) => {
-    if (debouncedUpdate.current) {
-      clearTimeout(debouncedUpdate.current);
-    }
-    debouncedUpdate.current = setTimeout(() => {
-      updatePhaseItem(id, phase, updatedItem);
-    }, 500);
-  };
-
-  // Fetch initial data
   useEffect(() => {
-    fetchPhases();
-    fetchTeam();
-    // No whiteboard state fetching
-    // eslint-disable-next-line
-  }, []);
+    localStorage.setItem('clientName', clientName);
+  }, [clientName]);
 
-  const fetchPhases = async () => {
-    const response = await fetch("https://whiteboard-backend-1cdi.onrender.com/api/phases");
-    const data = await response.json();
-    setPhases([
-      { name: "Design", items: data.filter((item) => item.phase === "Design") },
-      { name: "Development", items: data.filter((item) => item.phase === "Development") },
-      { name: "Alpha Usage", items: data.filter((item) => item.phase === "Alpha Usage") },
-      { name: "Beta Release (Web)", items: data.filter((item) => item.phase === "Beta Release (Web)") },
-    ]);
-  };
+  useEffect(() => { savePhases(phases); }, [phases]);
+  useEffect(() => { saveTeam(team); }, [team]);
 
-  const fetchTeam = async () => {
-    const response = await fetch("https://whiteboard-backend-1cdi.onrender.com/api/team");
-    const data = await response.json();
-    setTeam(data);
-  };
+  useEffect(() => {
+    const phasesData = localStorage.getItem('phases');
+    const parsed = phasesData ? JSON.parse(phasesData) : null;
+    const empty = !parsed || parsed.every(p => !p.items.length);
+    if (empty && team.length > 0) {
+      const newPhases = generateSamplePhases(team);
+      setPhases(newPhases);
+      savePhases(newPhases);
+    }
+  }, [team]);
 
-  const addTeamMember = async () => {
+  const addTeamMember = () => {
     if (!username || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       alert("Please enter a valid username and email");
       return;
     }
-    const response = await fetch("https://whiteboard-backend-1cdi.onrender.com/api/invite", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email }),
-    });
-    if (response.ok) {
-      fetchTeam();
-      setUsername("");
-      setEmail("");
-    } else {
-      alert("Failed to add user");
-    }
+    const newMember = {
+      id: Date.now(),
+      username,
+      email,
+      org,
+    };
+    setTeam(prev => [...prev, newMember]);
+    setUsername("");
+    setEmail("");
+    setOrg("PHG");
   };
 
-  const updatePhaseItem = async (id, phase, updatedItem) => {
-    try {
-      const response = await fetch(`https://whiteboard-backend-1cdi.onrender.com/api/phases/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...updatedItem, phase }),
-      });
-      if (response.ok) {
-        setPhases(prevPhases =>
-          prevPhases.map(p => ({
-            ...p,
-            items: p.items.map(item =>
-              item.id === id ? { ...item, ...updatedItem } : item
-            )
-          }))
-        );
-      }
-    } catch (error) {
-      console.error('Error updating item:', error);
-    }
-  };
-
-  const handleNewTaskChange = (e) => {
-    const { name, value } = e.target;
-    setNewTask((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const addNewTask = async () => {
+  const addNewTask = () => {
     if (!newTask.goal) {
       alert("Please enter a goal");
       return;
     }
-    const response = await fetch("https://whiteboard-backend-1cdi.onrender.com/api/phases", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...newTask, assigned_to: newTask.assigned_to || "team" }),
+    const task = { ...newTask, id: Date.now() };
+    setPhases(prev => prev.map(p =>
+      p.name === task.phase ? { ...p, items: [...p.items, task] } : p
+    ));
+    setNewTask({
+      phase: "Outstanding",
+      goal: "",
+      need: "",
+      comments: "",
+      execute: "N",
+      stage: "Outstanding",
+      commentArea: "",
+      assigned_to: "team"
     });
-    if (response.ok) {
-      fetchPhases();
-      setNewTask({
-        phase: "Design",
-        goal: "",
-        need: "",
-        comments: "",
-        execute: "N",
-        stage: "review",
-        commentArea: "",
-        assigned_to: "team"
-      });
-    } else {
-      alert("Failed to add task");
-    }
   };
 
-  const deletePhaseItem = async (id) => {
-    const url = `https://whiteboard-backend-1cdi.onrender.com/api/phases/${id}`;
-    if (window.confirm("Are you sure you want to delete this task?")) {
-      try {
-        const response = await fetch(url, {
-          method: "DELETE",
-        });
-        setPhases(prevPhases =>
-          prevPhases.map(p => ({
-            ...p,
-            items: p.items.filter(item => item.id !== id)
-          }))
-        );
-        if (!response.ok) {
-          console.error('Failed to delete from backend:', response.status);
-        }
-      } catch (error) {
-        console.error('Error deleting item:', error);
-        alert("Failed to delete task. Please try again.");
-      }
+  const updatePhaseItem = (id, phase, updatedItem) => {
+    setPhases(prev => prev.map(p =>
+      p.name === phase
+        ? { ...p, items: p.items.map(i => i.id === id ? { ...i, ...updatedItem } : i) }
+        : p
+    ));
+  };
+
+  const deletePhaseItem = (id) => {
+    setPhases(prev => prev.map(p => ({ ...p, items: p.items.filter(i => i.id !== id) })));
+  };
+
+  const handleDeleteMember = (member) => {
+    const assignedTasks = phases.flatMap(p => p.items.filter(i => i.assigned_to === member.username));
+    if (assignedTasks.length > 0) {
+      alert("Cannot delete: member is assigned to tasks");
+      return;
     }
+    setTeam(prev => prev.filter(m => m.id !== member.id));
+  };
+
+  const handleNotWorking = (member) => {
+    const assignedTasks = phases.flatMap(p => p.items.filter(i => i.assigned_to === member.username));
+    setNotWorkingPrompt({ member, tasks: assignedTasks });
+    setReassignTo("");
+  };
+
+  const confirmNotWorking = () => {
+    if (!notWorkingPrompt) return;
+    setPhases(prev => prev.map(p => ({
+      ...p,
+      items: p.items.map(i =>
+        i.assigned_to === notWorkingPrompt.member.username
+          ? { ...i, assigned_to: reassignTo || "team" }
+          : i
+      )
+    })));
+    setTeam(prev => prev.map(m =>
+      m.id === notWorkingPrompt.member.id ? { ...m, org: (m.org || "") + " (Not Working)" } : m
+    ));
+    setNotWorkingPrompt(null);
+  };
+
+  const cancelNotWorking = () => setNotWorkingPrompt(null);
+
+  const handleSave = () => {
+    alert("Saved! (Data is now persistent in your browser.)");
   };
 
   return (
-    <div style={{ padding: 16, maxWidth: 1200, margin: "0 auto", position: "relative" }}>
-      {/* Partners Logo Top Right */}
-      <img
-        src={process.env.PUBLIC_URL + "/partners-logo.png"}
-        alt="Partners Healthcare Group Logo"
-        style={{
-          position: "absolute",
-          top: 16,
-          right: 16,
-          width: 180,
-          height: "auto",
-          zIndex: 2000
-        }}
-      />
-      {/* Add Task Form */}
-      <h2 style={{ fontSize: 20, fontWeight: "bold", marginBottom: 8 }}>ABC Hospital Status Report</h2>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        <select name="phase" value={newTask.phase} onChange={handleNewTaskChange} style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}>
-          <option value="Design">Design</option>
-          <option value="Development">Development</option>
-          <option value="Alpha Usage">Alpha Usage</option>
-          <option value="Beta Release (Web)">Beta Release (Web)</option>
-        </select>
-        <input name="goal" value={newTask.goal} onChange={handleNewTaskChange} placeholder="Goal" style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }} />
-        <input
-          name="need"
-          type="date"
-          value={newTask.need}
-          onChange={handleNewTaskChange}
-          placeholder="ETC Date"
-          style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
+    <div style={{ background: '#f9fafb', minHeight: '100vh' }}>
+      <div style={{ position: 'absolute', top: 16, right: 32, zIndex: 2000 }}>
+        <img
+          src={process.env.PUBLIC_URL + "/partners-logo.png"}
+          alt="Partners Healthcare Group Logo"
+          style={{ width: 160, height: 'auto' }}
         />
-        <input name="comments" value={newTask.comments} onChange={handleNewTaskChange} placeholder="Comments" style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }} />
-        <select name="execute" value={newTask.execute} onChange={handleNewTaskChange} style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}>
-          <option value="Y">Y</option>
-          <option value="N">N</option>
-        </select>
-        <select name="stage" value={newTask.stage} onChange={handleNewTaskChange} style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}>
-          <option value="review">Review</option>
-          <option value="In Dev">In Dev</option>
-          <option value="Feedback">Feedback</option>
-          <option value="Testing">Testing</option>
-          <option value="Complete">Complete</option>
-          <option value="Released">Released</option>
-        </select>
-        <select name="assigned_to" value={newTask.assigned_to} onChange={handleNewTaskChange} style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}>
-          <option value="team">team</option>
-          {team.map((member) => (
-            <option key={member.id} value={member.username}>{member.username}</option>
-          ))}
-        </select>
-        <input name="commentArea" value={newTask.commentArea} onChange={handleNewTaskChange} placeholder="Feedback" style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }} />
-        <button onClick={addNewTask} style={{ background: "#22c55e", color: "white", padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer" }}>Add</button>
       </div>
+      <div style={{ padding: 32, maxWidth: 900, margin: '0 auto', position: 'relative', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.07)' }}>
+        <h1 style={{ fontSize: 32, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', letterSpacing: 1, color: '#1f2937' }}>HAS Status</h1>
+      
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 24, gap: 12 }}>
+          <label htmlFor="clientName" style={{ fontWeight: "bold", fontSize: 18 }}>Client Name:</label>
+          <input
+            id="clientName"
+            type="text"
+            value={clientName}
+            onChange={e => setClientName(e.target.value)}
+            placeholder="Enter client name..."
+            style={{ fontSize: 18, padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
+          />
+        </div>
 
-      {/* Task Table */}
-      {phases.map((phase) => (
-        <div key={phase.name} style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 20, fontWeight: "bold", marginBottom: 8 }}>{phase.name}</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #ccc" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+          <button
+            onClick={handleSave}
+            style={{ background: "#22c55e", color: "white", padding: "12px 28px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 16, fontWeight: "bold", boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}
+          >
+            Save
+          </button>
+        </div>
+
+        <h2 style={{ fontSize: 20, fontWeight: "bold", marginBottom: 8, marginTop: 0 }}>Add Team Member</h2>
+        <div style={{ display: "flex", gap: 12, marginBottom: 16, background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <input
+            type="text"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            placeholder="Username"
+            style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
+          />
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="Email"
+            style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
+          />
+          <select
+            value={org}
+            onChange={e => setOrg(e.target.value)}
+            style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
+          >
+            <option value="PHG">PHG</option>
+            <option value="Outside">Outside</option>
+          </select>
+          <button
+            onClick={addTeamMember}
+            style={{ background: "#3b82f6", color: "white", padding: "8px 20px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
+          >
+            Add
+          </button>
+        </div>
+
+        <div style={{ marginBottom: 32, background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <h3 style={{ fontWeight: "bold", marginBottom: 8 }}>Team Members</h3>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f3f4f6" }}>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>Goal</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>ETC Date</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>Comments</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>Execute</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>Status</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>Feedback</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>Assigned To</th>
-                <th style={{ border: "1px solid #ccc", padding: 8 }}>Delete</th>
+                <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Username</th>
+                <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Email</th>
+                <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Org</th>
+                <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {phase.items.map((item) => (
-                <tr key={item.id}>
-                  <td style={{ border: "1px solid #ccc", padding: 8 }}>
-                    <input
-                      type="text"
-                      value={item.goal}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        setPhases(prevPhases =>
-                          prevPhases.map(p => ({
-                            ...p,
-                            items: p.items.map(i =>
-                              i.id === item.id ? { ...i, goal: newValue } : i
-                            )
-                          }))
-                        );
-                        debouncedUpdatePhaseItem(item.id, phase.name, { ...item, goal: newValue });
-                      }}
-                      style={{ width: "100%", padding: 4 }}
-                    />
-                  </td>
-                  <td style={{ border: "1px solid #ccc", padding: 8 }}>
-                    <input
-                      type="date"
-                      value={item.need || ""}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        setPhases(prevPhases =>
-                          prevPhases.map(p => ({
-                            ...p,
-                            items: p.items.map(i =>
-                              i.id === item.id ? { ...i, need: newValue } : i
-                            )
-                          }))
-                        );
-                        debouncedUpdatePhaseItem(item.id, phase.name, { ...item, need: newValue });
-                      }}
-                      style={{ width: "100%", padding: 4 }}
-                    />
-                  </td>
-                  <td style={{ border: "1px solid #ccc", padding: 8 }}>
-                    <input
-                      type="text"
-                      value={item.comments}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        setPhases(prevPhases =>
-                          prevPhases.map(p => ({
-                            ...p,
-                            items: p.items.map(i =>
-                              i.id === item.id ? { ...i, comments: newValue } : i
-                            )
-                          }))
-                        );
-                        debouncedUpdatePhaseItem(item.id, phase.name, { ...item, comments: newValue });
-                      }}
-                      style={{ width: "100%", padding: 4 }}
-                    />
-                  </td>
-                  <td style={{ border: "1px solid #ccc", padding: 8 }}>
-                    <select
-                      value={item.execute}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        setPhases(prevPhases =>
-                          prevPhases.map(p => ({
-                            ...p,
-                            items: p.items.map(i =>
-                              i.id === item.id ? { ...i, execute: newValue } : i
-                            )
-                          }))
-                        );
-                        debouncedUpdatePhaseItem(item.id, phase.name, { ...item, execute: newValue });
-                      }}
-                      style={{ width: "100%", padding: 4 }}
-                    >
-                      <option value="Y">Y</option>
-                      <option value="N">N</option>
-                    </select>
-                  </td>
-                  <td style={{ border: "1px solid #ccc", padding: 8 }}>
-                    <select
-                      value={item.stage}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        setPhases(prevPhases =>
-                          prevPhases.map(p => ({
-                            ...p,
-                            items: p.items.map(i =>
-                              i.id === item.id ? { ...i, stage: newValue, phase: newValue } : i
-                            )
-                          }))
-                        );
-                        debouncedUpdatePhaseItem(item.id, newValue, { ...item, stage: newValue, phase: newValue });
-                      }}
-                      style={{ width: "100%", padding: 4 }}
-                    >
-                      <option value="Design">Design</option>
-                      <option value="Development">Development</option>
-                      <option value="Alpha Usage">Alpha Usage</option>
-                      <option value="Beta Release (Web)">Beta Release (Web)</option>
-                    </select>
-                  </td>
-                  <td style={{ border: "1px solid #ccc", padding: 8 }}>
-                    <input
-                      type="text"
-                      value={item.commentArea}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        setPhases(prevPhases =>
-                          prevPhases.map(p => ({
-                            ...p,
-                            items: p.items.map(i =>
-                              i.id === item.id ? { ...i, commentArea: newValue } : i
-                            )
-                          }))
-                        );
-                        debouncedUpdatePhaseItem(item.id, phase.name, { ...item, commentArea: newValue });
-                      }}
-                      style={{ width: "100%", padding: 4 }}
-                    />
-                  </td>
-                  <td style={{ border: "1px solid #ccc", padding: 8 }}>
-                    <select
-                      value={item.assigned_to}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        setPhases(prevPhases =>
-                          prevPhases.map(p => ({
-                            ...p,
-                            items: p.items.map(i =>
-                              i.id === item.id ? { ...i, assigned_to: newValue } : i
-                            )
-                          }))
-                        );
-                        debouncedUpdatePhaseItem(item.id, phase.name, { ...item, assigned_to: newValue });
-                      }}
-                      style={{ width: "100%", padding: 4 }}
-                    >
-                      <option value="team">team</option>
-                      {team.map((member) => (
-                        <option key={member.id} value={member.username}>{member.username}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td style={{ border: "1px solid #ccc", padding: 8 }}>
-                    <button
-                      onClick={() => deletePhaseItem(item.id)}
-                      style={{ background: "#ef4444", color: "white", border: "none", borderRadius: 4, padding: 4, cursor: "pointer" }}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {team.map(member => {
+                const assignedTasks = phases.flatMap(p => p.items.filter(i => i.assigned_to === member.username));
+                const canDelete = assignedTasks.length === 0 && !(member.org || "").includes("Not Working");
+                const canNotWork = assignedTasks.length > 0 && !(member.org || "").includes("Not Working");
+                return (
+                  <tr key={member.id}>
+                    <td style={{ border: "1px solid #e5e7eb", padding: 8 }}>{member.username}</td>
+                    <td style={{ border: "1px solid #e5e7eb", padding: 8 }}>{member.email}</td>
+                    <td style={{ border: "1px solid #e5e7eb", padding: 8 }}>{member.org}</td>
+                    <td style={{ border: "1px solid #e5e7eb", padding: 8 }}>
+                      <button
+                        onClick={() => handleDeleteMember(member)}
+                        disabled={!canDelete}
+                        style={{ background: canDelete ? "#ef4444" : "#ccc", color: "white", border: "none", borderRadius: 4, padding: "4px 12px", marginRight: 8, cursor: canDelete ? "pointer" : "not-allowed", fontWeight: "bold" }}
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => handleNotWorking(member)}
+                        disabled={!canNotWork}
+                        style={{ background: canNotWork ? "#f59e0b" : "#ccc", color: "white", border: "none", borderRadius: 4, padding: "4px 12px", cursor: canNotWork ? "pointer" : "not-allowed", fontWeight: "bold" }}
+                      >
+                        Not Working
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-      ))}
 
-      {/* Add Team Member */}
-      <h2 style={{ fontSize: 20, fontWeight: "bold", marginBottom: 8 }}>Add Team Member</h2>
-      <div style={{ display: "flex", gap: 8, marginBottom: 32 }}>
-        <input
-          type="text"
-          value={username}
-          onChange={e => setUsername(e.target.value)}
-          placeholder="Username"
-          style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
-        />
-        <input
-          type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          placeholder="Email"
-          style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
-        />
-        <button
-          onClick={addTeamMember}
-          style={{ background: "#3b82f6", color: "white", padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer" }}
-        >
-          Add
-        </button>
+        {notWorkingPrompt && (
+          <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.2)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ background: "#fff", padding: 32, borderRadius: 12, boxShadow: "0 2px 12px rgba(0,0,0,0.15)", minWidth: 320 }}>
+              <h3 style={{ marginBottom: 16 }}>Reassign all tasks for <b>{notWorkingPrompt.member.username}</b></h3>
+              <div style={{ marginBottom: 16 }}>
+                <label>Reassign to: </label>
+                <select value={reassignTo} onChange={e => setReassignTo(e.target.value)} style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}>
+                  <option value="">team</option>
+                  {team.filter(m => m.id !== notWorkingPrompt.member.id && !(m.org || "").includes("Not Working")).map(m => (
+                    <option key={m.id} value={m.username}>{m.username}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+                <button onClick={cancelNotWorking} style={{ background: "#ccc", color: "#222", border: "none", borderRadius: 4, padding: "8px 20px", fontWeight: "bold" }}>Cancel</button>
+                <button onClick={confirmNotWorking} style={{ background: "#22c55e", color: "white", border: "none", borderRadius: 4, padding: "8px 20px", fontWeight: "bold" }}>Confirm</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginBottom: 32, background: "#fff", padding: 20, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <h3 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>Add New Task</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div>
+              <label style={{ display: "block", fontWeight: "bold", marginBottom: 4 }}>Goal:</label>
+              <input 
+                name="goal" 
+                value={newTask.goal} 
+                onChange={e => setNewTask(prev => ({ ...prev, goal: e.target.value }))} 
+                placeholder="Enter task goal..." 
+                style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ccc" }} 
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontWeight: "bold", marginBottom: 4 }}>ETC Date:</label>
+              <input 
+                name="need" 
+                type="date" 
+                value={newTask.need} 
+                onChange={e => setNewTask(prev => ({ ...prev, need: e.target.value }))} 
+                style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ccc" }} 
+              />
+            </div>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label style={{ display: "block", fontWeight: "bold", marginBottom: 4 }}>Comments:</label>
+              <input 
+                name="comments" 
+                value={newTask.comments} 
+                onChange={e => setNewTask(prev => ({ ...prev, comments: e.target.value }))} 
+                placeholder="Enter comments..." 
+                style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ccc" }} 
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontWeight: "bold", marginBottom: 4 }}>Frequency:</label>
+              <select 
+                name="frequency" 
+                value={newTask.execute} 
+                onChange={e => setNewTask(prev => ({ ...prev, execute: e.target.value }))} 
+                style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
+              >
+                <option value="Monthly">Monthly</option>
+                <option value="Weekly">Weekly</option>
+                <option value="One-Time">One-Time</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: "block", fontWeight: "bold", marginBottom: 4 }}>Status:</label>
+              <select 
+                name="stage" 
+                value={newTask.stage} 
+                onChange={e => setNewTask(prev => ({ ...prev, stage: e.target.value }))} 
+                style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
+              >
+                <option value="Outstanding">Outstanding</option>
+                <option value="Review/Discussion">Review/Discussion</option>
+                <option value="In Process">In Process</option>
+                <option value="Resolved">Resolved</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: "block", fontWeight: "bold", marginBottom: 4 }}>Assigned To:</label>
+              <select 
+                name="assigned_to" 
+                value={newTask.assigned_to} 
+                onChange={e => setNewTask(prev => ({ ...prev, assigned_to: e.target.value }))} 
+                style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
+              >
+                <option value="team">team</option>
+                {team.map((member) => (
+                  <option key={member.id} value={member.username}>{member.username}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: "block", fontWeight: "bold", marginBottom: 4 }}>Feedback:</label>
+              <input 
+                name="commentArea" 
+                value={newTask.commentArea} 
+                onChange={e => setNewTask(prev => ({ ...prev, commentArea: e.target.value }))} 
+                placeholder="Enter feedback..." 
+                style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ccc" }} 
+              />
+            </div>
+            <div style={{ gridColumn: "1 / -1", textAlign: "center" }}>
+              <button 
+                onClick={addNewTask} 
+                style={{ background: "#22c55e", color: "white", padding: "12px 24px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold", fontSize: 16 }}
+              >
+                Add Task
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 220 }}>
+            <label style={{ fontWeight: 'bold', marginRight: 8, display: 'block' }}>Filter by Owner:</label>
+            <Select
+              isMulti
+              options={team.map(m => ({ value: m.username, label: m.username }))}
+              value={team.filter(m => filterMember.includes(m.username)).map(m => ({ value: m.username, label: m.username }))}
+              onChange={selected => setFilterMember(selected.map(opt => opt.value))}
+              placeholder="Select team members..."
+              closeMenuOnSelect={false}
+              styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
+            />
+          </div>
+          <div style={{ minWidth: 220 }}>
+            <label style={{ fontWeight: 'bold', marginRight: 8, display: 'block' }}>Filter by Status:</label>
+            <Select
+              isMulti
+              options={[
+                { value: 'Outstanding', label: 'Outstanding' },
+                { value: 'Review/Discussion', label: 'Review/Discussion' },
+                { value: 'In Process', label: 'In Process' },
+                { value: 'Resolved', label: 'Resolved' }
+              ]}
+              value={filterStatus.map(s => ({ value: s, label: s }))}
+              onChange={selected => setFilterStatus(selected.map(opt => opt.value))}
+              placeholder="Select statuses..."
+              closeMenuOnSelect={false}
+              styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
+            />
+          </div>
+          <button 
+            onClick={() => setSortByStatus(s => !s)} 
+            style={{ padding: '6px 16px', borderRadius: 4, border: '1px solid #ccc', background: '#f3f4f6', fontWeight: 'bold', cursor: 'pointer', height: 40, alignSelf: 'end' }}
+          >
+            Filter by Status
+          </button>
+          <button 
+            onClick={() => {
+              setFilterMember([]);
+              setFilterStatus([]);
+            }} 
+            style={{ padding: '6px 16px', borderRadius: 4, border: '1px solid #ccc', background: '#ef4444', color: 'white', fontWeight: 'bold', cursor: 'pointer', height: 40, alignSelf: 'end' }}
+          >
+            Clear Filters
+          </button>
+        </div>
+
+        {phases.map((phase, phaseIdx) => {
+          let items = phase.items;
+          if (filterMember.length > 0) items = items.filter(i => filterMember.includes(i.assigned_to));
+          if (filterStatus.length > 0) items = items.filter(i => filterStatus.includes(i.stage));
+          if (sortByStatus) {
+            items = [...items].sort((a, b) => a.stage.localeCompare(b.stage));
+          }
+          if (!items.length) return null;
+          return (
+            <div key={phase.name} style={{ marginBottom: 32, background: "#fff", borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)", padding: 20 }}>
+              <h2 style={{ fontSize: 20, fontWeight: "bold", marginBottom: 12 }}>{phase.name}</h2>
+              <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #e5e7eb", background: "#fff" }}>
+                <thead>
+                  <tr style={{ background: "#f3f4f6" }}>
+                    <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Goal</th>
+                    <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>ETC Date</th>
+                    <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Comments</th>
+                    <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Frequency</th>
+                    <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Status</th>
+                    <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Feedback</th>
+                    <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Assigned To</th>
+                    <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Delete</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map(item => (
+                    <tr key={item.id}>
+                      <ExpandingCell
+                        editable
+                        value={item.goal}
+                        onChange={val => updatePhaseItem(item.id, phase.name, { goal: val })}
+                      >
+                        {item.goal}
+                      </ExpandingCell>
+                      <td>
+                        <input type="date" value={item.need || ""} onChange={e => updatePhaseItem(item.id, phase.name, { need: e.target.value })} />
+                      </td>
+                      <ExpandingCell
+                        editable
+                        value={item.comments}
+                        onChange={val => updatePhaseItem(item.id, phase.name, { comments: val })}
+                      >
+                        {item.comments}
+                      </ExpandingCell>
+                      <td>
+                        <select value={item.execute} onChange={e => updatePhaseItem(item.id, phase.name, { execute: e.target.value })}>
+                          <option value="Monthly">Monthly</option>
+                          <option value="Weekly">Weekly</option>
+                          <option value="One-Time">One-Time</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select value={item.stage} onChange={e => updatePhaseItem(item.id, phase.name, { stage: e.target.value })}>
+                          <option value="Outstanding">Outstanding</option>
+                          <option value="Review/Discussion">Review/Discussion</option>
+                          <option value="In Process">In Process</option>
+                          <option value="Resolved">Resolved</option>
+                        </select>
+                      </td>
+                      <ExpandingCell
+                        editable
+                        value={item.commentArea}
+                        onChange={val => updatePhaseItem(item.id, phase.name, { commentArea: val })}
+                      >
+                        {item.commentArea}
+                      </ExpandingCell>
+                      <td>
+                        <select value={item.assigned_to} onChange={e => updatePhaseItem(item.id, phase.name, { assigned_to: e.target.value })}>
+                          <option value="team">team</option>
+                          {team.map(member => (
+                            <option key={member.id} value={member.username}>{member.username}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <button onClick={() => deletePhaseItem(item.id)} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: 4, padding: '4px 12px', fontWeight: 'bold', cursor: 'pointer' }}>Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
