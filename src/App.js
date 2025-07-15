@@ -104,19 +104,40 @@ function SmartTooltip({ children, content }) {
 }
 
 // Replace SmartTooltip with ExpandingCell
-function ExpandingCell({ children, editable, value, onChange }) {
+function ExpandingCell({ editable, value, onChange }) {
   const [hovered, setHovered] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const [boxPos, setBoxPos] = useState(null);
-  const [popoutHovered, setPopoutHovered] = useState(false);
-  const inputRef = useRef();
   const cellRef = useRef();
-  const closeTimeout = useRef();
+  const inputRef = useRef();
 
   useEffect(() => {
     setEditValue(value);
   }, [value]);
+
+  // Get cell position for pop-out
+  useEffect(() => {
+    if ((hovered || editing) && cellRef.current) {
+      const rect = cellRef.current.getBoundingClientRect();
+      setBoxPos({
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height
+      });
+      console.log('ExpandingCell boxPos:', rect);
+    } else if (!hovered && !editing) {
+      setBoxPos(null);
+    }
+  }, [hovered, editing]);
+
+  // Focus textarea when editing
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [editing]);
 
   // Save on blur or Enter
   const handleSave = () => {
@@ -126,84 +147,35 @@ function ExpandingCell({ children, editable, value, onChange }) {
     setEditing(false);
   };
 
-  // Focus textarea when entering edit mode
-  useEffect(() => {
-    if (editing && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [editing]);
-
-  // Calculate pop-out position on hover or edit
-  useEffect(() => {
-    if ((hovered || editing || popoutHovered) && cellRef.current) {
-      const rect = cellRef.current.getBoundingClientRect();
-      setBoxPos({
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-        height: rect.height
-      });
-      console.log('ExpandingCell boxPos:', rect);
-    } else {
-      setBoxPos(null);
-    }
-  }, [hovered, editing, popoutHovered]);
-
-  // Only close popout if mouse leaves both cell and popout, with delay
-  const handleCellMouseLeave = () => {
-    closeTimeout.current = setTimeout(() => {
-      if (!popoutHovered && !editing) setHovered(false);
-    }, 120);
-  };
-  const handlePopoutMouseLeave = () => {
-    closeTimeout.current = setTimeout(() => {
-      setPopoutHovered(false);
-      if (!hovered && !editing) setHovered(false);
-    }, 120);
-  };
-  const handlePopoutMouseEnter = () => {
-    clearTimeout(closeTimeout.current);
-    setPopoutHovered(true);
-  };
-  const handleCellMouseEnter = () => {
-    clearTimeout(closeTimeout.current);
-    setHovered(true);
-  };
-
-  // DEBUG: Force the pop-out to always render for testing
-  const debugAlwaysShowPopout = true;
-
-  // The floating pop-out box
-  const popout = (debugAlwaysShowPopout || hovered || editing || popoutHovered) && boxPos ? ReactDOM.createPortal(
+  // Pop-out content
+  const popoutContent = (
     <div
       style={{
-        position: 'fixed',
-        left: boxPos.left,
-        top: boxPos.top + boxPos.height + 8, // show below cell
-        width: 540,
-        minWidth: 300,
-        maxWidth: 540,
-        minHeight: boxPos.height,
-        maxHeight: 320,
-        background: '#ffb3b3', // DEBUG: bright red for visibility
-        boxShadow: '0 12px 40px rgba(0,0,0,0.22)',
+        background: '#fffbe6',
+        border: '3px solid #ffe066',
         borderRadius: 12,
+        boxShadow: '0 12px 40px rgba(0,0,0,0.22)',
         zIndex: 999999,
         padding: 18,
         fontSize: 15,
-        textAlign: 'left',
+        minWidth: 320,
+        maxWidth: 540,
+        minHeight: 40,
+        maxHeight: 320,
         overflowY: 'auto',
         whiteSpace: 'pre-wrap',
-        transition: 'all 0.22s cubic-bezier(.4,2,.6,1)',
-        border: '4px solid #0000ff', // DEBUG: thick blue border
+        position: 'fixed',
+        left: boxPos ? boxPos.left : '50%',
+        top: boxPos ? boxPos.top + (boxPos.height || 0) + 8 : '50%',
+        transform: boxPos ? 'none' : 'translate(-50%, -50%)',
         outline: 'none',
         cursor: editing ? 'text' : editable ? 'pointer' : 'default',
+        color: '#222',
       }}
-      onMouseEnter={handlePopoutMouseEnter}
-      onMouseLeave={handlePopoutMouseLeave}
       onClick={e => e.stopPropagation()}
+      onMouseLeave={() => { if (!editing) setHovered(false); }}
+      onMouseEnter={() => setHovered(true)}
     >
-      <div style={{fontWeight:'bold',color:'#222',marginBottom:8}}>DEBUG: Pop-out should always be visible</div>
       {editing ? (
         <textarea
           ref={inputRef}
@@ -214,15 +186,20 @@ function ExpandingCell({ children, editable, value, onChange }) {
           style={{ width: '100%', minHeight: 40, maxHeight: 240, fontSize: 15, padding: 10, borderRadius: 8, border: '2px solid #ccc', background: '#fff', resize: 'vertical', boxSizing: 'border-box', textAlign: 'left', overflow: 'auto', outline: 'none' }}
         />
       ) : (
-        <div style={{ width: '100%', minHeight: 40, maxHeight: 240, overflowY: 'auto', cursor: editable ? 'pointer' : 'default', color: editValue ? '#222' : '#aaa' }}
+        <div
+          style={{ width: '100%', minHeight: 40, maxHeight: 240, overflowY: 'auto', cursor: editable ? 'pointer' : 'default', color: editValue ? '#222' : '#aaa' }}
           onClick={() => { if (editable) setEditing(true); }}
         >
           {editValue || <span>(No content)</span>}
         </div>
       )}
-    </div>,
-    document.body
-  ) : null;
+    </div>
+  );
+
+  // Only show pop-out on hover or editing
+  const popout = (hovered || editing) && (boxPos || editing)
+    ? ReactDOM.createPortal(popoutContent, document.body)
+    : null;
 
   return (
     <td
@@ -240,8 +217,8 @@ function ExpandingCell({ children, editable, value, onChange }) {
         zIndex: hovered || editing ? 2 : 1,
         transition: 'background 0.18s, border 0.18s',
       }}
-      onMouseEnter={handleCellMouseEnter}
-      onMouseLeave={handleCellMouseLeave}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { if (!editing) setHovered(false); }}
       onClick={() => { if (editable) setEditing(true); }}
     >
       <span style={{ display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle' }}>
