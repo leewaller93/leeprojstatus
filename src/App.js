@@ -109,6 +109,7 @@ function ExpandingCell({ children, editable, value, onChange }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const [boxPos, setBoxPos] = useState(null);
+  const [popoutHovered, setPopoutHovered] = useState(false);
   const inputRef = useRef();
   const cellRef = useRef();
 
@@ -133,7 +134,7 @@ function ExpandingCell({ children, editable, value, onChange }) {
 
   // Calculate pop-out position on hover or edit
   useEffect(() => {
-    if ((hovered || editing) && cellRef.current) {
+    if ((hovered || editing || popoutHovered) && cellRef.current) {
       const rect = cellRef.current.getBoundingClientRect();
       setBoxPos({
         left: rect.left + window.scrollX,
@@ -144,10 +145,23 @@ function ExpandingCell({ children, editable, value, onChange }) {
     } else {
       setBoxPos(null);
     }
-  }, [hovered, editing]);
+  }, [hovered, editing, popoutHovered]);
+
+  // Only close popout if mouse leaves both cell and popout
+  const handleCellMouseLeave = () => {
+    setTimeout(() => {
+      if (!popoutHovered && !editing) setHovered(false);
+    }, 80);
+  };
+  const handlePopoutMouseLeave = () => {
+    setTimeout(() => {
+      setPopoutHovered(false);
+      if (!hovered && !editing) setHovered(false);
+    }, 80);
+  };
 
   // The floating pop-out box
-  const popout = (hovered || editing) && boxPos ? ReactDOM.createPortal(
+  const popout = (hovered || editing || popoutHovered) && boxPos ? ReactDOM.createPortal(
     <div
       style={{
         position: 'absolute',
@@ -172,7 +186,8 @@ function ExpandingCell({ children, editable, value, onChange }) {
         outline: 'none',
         cursor: editing ? 'text' : editable ? 'pointer' : 'default',
       }}
-      onMouseLeave={() => { setHovered(false); setEditing(false); }}
+      onMouseEnter={() => setPopoutHovered(true)}
+      onMouseLeave={handlePopoutMouseLeave}
       onClick={e => e.stopPropagation()}
     >
       {editing ? (
@@ -212,7 +227,7 @@ function ExpandingCell({ children, editable, value, onChange }) {
         transition: 'background 0.18s, border 0.18s',
       }}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { if (!editing) setHovered(false); }}
+      onMouseLeave={handleCellMouseLeave}
       onClick={() => { if (editable) setEditing(true); }}
     >
       <span style={{ display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle' }}>
