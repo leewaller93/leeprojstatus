@@ -105,6 +105,7 @@ function SmartTooltip({ children, content }) {
 
 // Replace SmartTooltip with ExpandingCell
 function ExpandingCell({ editable, value, onChange }) {
+  console.log("ExpandingCell rendered");
   const [showPopout, setShowPopout] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -147,7 +148,7 @@ function ExpandingCell({ editable, value, onChange }) {
     setShowPopout(false);
   };
 
-  // Pop-out content
+  // Pop-out content (normal)
   const popoutContent = (
     <div
       style={{
@@ -197,6 +198,29 @@ function ExpandingCell({ editable, value, onChange }) {
     </div>
   );
 
+  // DEBUG: Always render a visible debug div in the center of the screen
+  const debugDiv = ReactDOM.createPortal(
+    <div style={{
+      position: 'fixed',
+      left: '50%',
+      top: '50%',
+      transform: 'translate(-50%, -50%)',
+      background: '#ffb3b3',
+      color: '#222',
+      border: '4px solid #0000ff',
+      borderRadius: 16,
+      zIndex: 9999999,
+      padding: 32,
+      fontSize: 24,
+      fontWeight: 'bold',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+      pointerEvents: 'none',
+    }}>
+      DEBUG: ExpandingCell is running
+    </div>,
+    document.body
+  );
+
   // Only show pop-out on hover or editing
   const popout = (showPopout || editing) && (boxPos || editing)
     ? ReactDOM.createPortal(popoutContent, document.body)
@@ -226,6 +250,7 @@ function ExpandingCell({ editable, value, onChange }) {
         {editValue || <span style={{ color: '#aaa' }}>(No content)</span>}
       </span>
       {popout}
+      {debugDiv}
     </td>
   );
 }
