@@ -105,7 +105,7 @@ function SmartTooltip({ children, content }) {
 
 // Replace SmartTooltip with ExpandingCell
 function ExpandingCell({ editable, value, onChange }) {
-  console.log("ExpandingCell rendered");
+  // console.log("ExpandingCell rendered");
   const [showPopout, setShowPopout] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -198,29 +198,6 @@ function ExpandingCell({ editable, value, onChange }) {
     </div>
   );
 
-  // DEBUG: Always render a visible debug div in the center of the screen
-  const debugDiv = ReactDOM.createPortal(
-    <div style={{
-      position: 'fixed',
-      left: '50%',
-      top: '50%',
-      transform: 'translate(-50%, -50%)',
-      background: '#ffb3b3',
-      color: '#222',
-      border: '4px solid #0000ff',
-      borderRadius: 16,
-      zIndex: 9999999,
-      padding: 32,
-      fontSize: 24,
-      fontWeight: 'bold',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-      pointerEvents: 'none',
-    }}>
-      DEBUG: ExpandingCell is running
-    </div>,
-    document.body
-  );
-
   // Only show pop-out on hover or editing
   const popout = (showPopout || editing) && (boxPos || editing)
     ? ReactDOM.createPortal(popoutContent, document.body)
@@ -250,14 +227,16 @@ function ExpandingCell({ editable, value, onChange }) {
         {editValue || <span style={{ color: '#aaa' }}>(No content)</span>}
       </span>
       {popout}
-      {debugDiv}
     </td>
   );
 }
 
+// Backend API URL (update this to your server's public IP/domain as needed)
+const API_URL = "https://has-status-backend.onrender.com/api";
+
 function App() {
-  const [team, setTeam] = useState(loadTeam());
-  const [phases, setPhases] = useState(() => loadPhases() || generateSamplePhases(loadTeam()));
+  const [team, setTeam] = useState([]);
+  const [phases, setPhases] = useState([]);
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [org, setOrg] = useState("PHG");
@@ -273,86 +252,101 @@ function App() {
   });
   const [notWorkingPrompt, setNotWorkingPrompt] = useState(null);
   const [reassignTo, setReassignTo] = useState("");
-  const [clientName, setClientName] = useState(() => localStorage.getItem('clientName') || '');
+  const [clientName, setClientName] = useState("");
   const [filterMember, setFilterMember] = useState([]);
   const [filterStatus, setFilterStatus] = useState([]);
   const [sortByStatus, setSortByStatus] = useState(false);
 
+  // Fetch phases and team from backend
   useEffect(() => {
-    localStorage.setItem('clientName', clientName);
-  }, [clientName]);
+    fetchPhases();
+    fetchTeam();
+  }, []);
 
-  useEffect(() => { savePhases(phases); }, [phases]);
-  useEffect(() => { saveTeam(team); }, [team]);
+  const fetchPhases = async () => {
+    const res = await fetch(`${API_URL}/phases`);
+    const data = await res.json();
+    // Group by phase name
+    const phaseNames = ["Outstanding", "Review/Discussion", "In Process", "Resolved"];
+    const grouped = phaseNames.map(name => ({
+      name,
+      items: data.filter(item => item.stage === name)
+    }));
+    setPhases(grouped);
+  };
 
-  useEffect(() => {
-    const phasesData = localStorage.getItem('phases');
-    const parsed = phasesData ? JSON.parse(phasesData) : null;
-    const empty = !parsed || parsed.every(p => !p.items.length);
-    if (empty && team.length > 0) {
-      const newPhases = generateSamplePhases(team);
-      setPhases(newPhases);
-      savePhases(newPhases);
-    }
-  }, [team]);
+  const fetchTeam = async () => {
+    const res = await fetch(`${API_URL}/team`);
+    const data = await res.json();
+    setTeam(data);
+  };
 
-  const addTeamMember = () => {
+  const addTeamMember = async () => {
     if (!username || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       alert("Please enter a valid username and email");
       return;
     }
-    const newMember = {
-      id: Date.now(),
-      username,
-      email,
-      org,
-    };
-    setTeam(prev => [...prev, newMember]);
-    setUsername("");
-    setEmail("");
-    setOrg("PHG");
+    const res = await fetch(`${API_URL}/invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, email, org })
+    });
+    if (res.ok) {
+      fetchTeam();
+      setUsername("");
+      setEmail("");
+      setOrg("PHG");
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || err.message || "Failed to add team member");
+    }
   };
 
-  const addNewTask = () => {
+  const addNewTask = async () => {
     if (!newTask.goal) {
       alert("Please enter a goal");
       return;
     }
-    const task = { ...newTask, id: Date.now() };
-    setPhases(prev => prev.map(p =>
-      p.name === task.phase ? { ...p, items: [...p.items, task] } : p
-    ));
-    setNewTask({
-      phase: "Outstanding",
-      goal: "",
-      need: "",
-      comments: "",
-      execute: "N",
-      stage: "Outstanding",
-      commentArea: "",
-      assigned_to: "team"
+    const res = await fetch(`${API_URL}/phases`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newTask)
     });
-  };
-
-  const updatePhaseItem = (id, phase, updatedItem) => {
-    setPhases(prev => prev.map(p =>
-      p.name === phase
-        ? { ...p, items: p.items.map(i => i.id === id ? { ...i, ...updatedItem } : i) }
-        : p
-    ));
-  };
-
-  const deletePhaseItem = (id) => {
-    setPhases(prev => prev.map(p => ({ ...p, items: p.items.filter(i => i.id !== id) })));
-  };
-
-  const handleDeleteMember = (member) => {
-    const assignedTasks = phases.flatMap(p => p.items.filter(i => i.assigned_to === member.username));
-    if (assignedTasks.length > 0) {
-      alert("Cannot delete: member is assigned to tasks");
-      return;
+    if (res.ok) {
+      fetchPhases();
+      setNewTask({
+        phase: "Outstanding",
+        goal: "",
+        need: "",
+        comments: "",
+        execute: "N",
+        stage: "Outstanding",
+        commentArea: "",
+        assigned_to: "team"
+      });
+    } else {
+      alert("Failed to add task");
     }
-    setTeam(prev => prev.filter(m => m.id !== member.id));
+  };
+
+  const updatePhaseItem = async (id, phase, updatedItem) => {
+    const res = await fetch(`${API_URL}/phases/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...updatedItem, phase })
+    });
+    if (res.ok) fetchPhases();
+  };
+
+  const deletePhaseItem = async (id) => {
+    const res = await fetch(`${API_URL}/phases/${id}`, { method: "DELETE" });
+    if (res.ok) fetchPhases();
+  };
+
+  const handleDeleteMember = async (member) => {
+    const res = await fetch(`${API_URL}/team/${member.id}`, { method: "DELETE" });
+    if (res.ok) fetchTeam();
+    else alert("Cannot delete: member is assigned to tasks");
   };
 
   const handleNotWorking = (member) => {
@@ -361,26 +355,26 @@ function App() {
     setReassignTo("");
   };
 
-  const confirmNotWorking = () => {
+  const confirmNotWorking = async () => {
     if (!notWorkingPrompt) return;
-    setPhases(prev => prev.map(p => ({
-      ...p,
-      items: p.items.map(i =>
-        i.assigned_to === notWorkingPrompt.member.username
-          ? { ...i, assigned_to: reassignTo || "team" }
-          : i
-      )
-    })));
-    setTeam(prev => prev.map(m =>
-      m.id === notWorkingPrompt.member.id ? { ...m, org: (m.org || "") + " (Not Working)" } : m
-    ));
-    setNotWorkingPrompt(null);
+    const res = await fetch(`${API_URL}/team/${notWorkingPrompt.member.id}/not-working`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reassign_to: reassignTo })
+    });
+    if (res.ok) {
+      fetchPhases();
+      fetchTeam();
+      setNotWorkingPrompt(null);
+    } else {
+      alert("Failed to mark as not working");
+    }
   };
 
   const cancelNotWorking = () => setNotWorkingPrompt(null);
 
   const handleSave = () => {
-    alert("Saved! (Data is now persistent in your browser.)");
+    alert("Saved! (Data is now persistent in the backend database.)");
   };
 
   return (
