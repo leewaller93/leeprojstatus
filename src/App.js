@@ -112,6 +112,7 @@ function ExpandingCell({ children, editable, value, onChange }) {
   const [popoutHovered, setPopoutHovered] = useState(false);
   const inputRef = useRef();
   const cellRef = useRef();
+  const closeTimeout = useRef();
 
   useEffect(() => {
     setEditValue(value);
@@ -137,8 +138,8 @@ function ExpandingCell({ children, editable, value, onChange }) {
     if ((hovered || editing || popoutHovered) && cellRef.current) {
       const rect = cellRef.current.getBoundingClientRect();
       setBoxPos({
-        left: rect.left + window.scrollX,
-        top: rect.top + window.scrollY,
+        left: rect.left,
+        top: rect.top,
         width: rect.width,
         height: rect.height
       });
@@ -147,24 +148,32 @@ function ExpandingCell({ children, editable, value, onChange }) {
     }
   }, [hovered, editing, popoutHovered]);
 
-  // Only close popout if mouse leaves both cell and popout
+  // Only close popout if mouse leaves both cell and popout, with delay
   const handleCellMouseLeave = () => {
-    setTimeout(() => {
+    closeTimeout.current = setTimeout(() => {
       if (!popoutHovered && !editing) setHovered(false);
-    }, 80);
+    }, 120);
   };
   const handlePopoutMouseLeave = () => {
-    setTimeout(() => {
+    closeTimeout.current = setTimeout(() => {
       setPopoutHovered(false);
       if (!hovered && !editing) setHovered(false);
-    }, 80);
+    }, 120);
+  };
+  const handlePopoutMouseEnter = () => {
+    clearTimeout(closeTimeout.current);
+    setPopoutHovered(true);
+  };
+  const handleCellMouseEnter = () => {
+    clearTimeout(closeTimeout.current);
+    setHovered(true);
   };
 
   // The floating pop-out box
   const popout = (hovered || editing || popoutHovered) && boxPos ? ReactDOM.createPortal(
     <div
       style={{
-        position: 'absolute',
+        position: 'fixed',
         left: boxPos.left,
         top: boxPos.top,
         width: 540,
@@ -173,20 +182,20 @@ function ExpandingCell({ children, editable, value, onChange }) {
         minHeight: boxPos.height,
         maxHeight: 320,
         background: '#fffbe6',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-        borderRadius: 10,
-        zIndex: 9999,
-        padding: 16,
+        boxShadow: '0 12px 40px rgba(0,0,0,0.22)',
+        borderRadius: 12,
+        zIndex: 99999,
+        padding: 18,
         fontSize: 15,
         textAlign: 'left',
         overflowY: 'auto',
         whiteSpace: 'pre-wrap',
         transition: 'all 0.22s cubic-bezier(.4,2,.6,1)',
-        border: '1.5px solid #ffe066',
+        border: '2px solid #ffe066',
         outline: 'none',
         cursor: editing ? 'text' : editable ? 'pointer' : 'default',
       }}
-      onMouseEnter={() => setPopoutHovered(true)}
+      onMouseEnter={handlePopoutMouseEnter}
       onMouseLeave={handlePopoutMouseLeave}
       onClick={e => e.stopPropagation()}
     >
@@ -197,7 +206,7 @@ function ExpandingCell({ children, editable, value, onChange }) {
           onChange={e => setEditValue(e.target.value)}
           onBlur={handleSave}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { inputRef.current.blur(); e.preventDefault(); } }}
-          style={{ width: '100%', minHeight: 40, maxHeight: 240, fontSize: 15, padding: 8, borderRadius: 6, border: '1.5px solid #ccc', background: '#fff', resize: 'vertical', boxSizing: 'border-box', textAlign: 'left', overflow: 'auto', outline: 'none' }}
+          style={{ width: '100%', minHeight: 40, maxHeight: 240, fontSize: 15, padding: 10, borderRadius: 8, border: '2px solid #ccc', background: '#fff', resize: 'vertical', boxSizing: 'border-box', textAlign: 'left', overflow: 'auto', outline: 'none' }}
         />
       ) : (
         <div style={{ width: '100%', minHeight: 40, maxHeight: 240, overflowY: 'auto', cursor: editable ? 'pointer' : 'default', color: editValue ? '#222' : '#aaa' }}
@@ -222,11 +231,11 @@ function ExpandingCell({ children, editable, value, onChange }) {
         whiteSpace: 'nowrap',
         cursor: editable ? 'pointer' : 'default',
         background: hovered || editing ? '#fffbe6' : undefined,
-        border: hovered || editing ? '1.5px solid #ffe066' : undefined,
+        border: hovered || editing ? '2px solid #ffe066' : undefined,
         zIndex: hovered || editing ? 2 : 1,
         transition: 'background 0.18s, border 0.18s',
       }}
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={handleCellMouseEnter}
       onMouseLeave={handleCellMouseLeave}
       onClick={() => { if (editable) setEditing(true); }}
     >
