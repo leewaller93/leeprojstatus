@@ -1,74 +1,98 @@
-<<<<<<< HEAD
-# Getting Started with Create React App
+# HAS Status Report App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern web application for tracking hospital accounting system (HAS) project status, team assignments, and feedback.
 
-## Available Scripts
+## Tech Stack
 
-In the project directory, you can run:
+- **Frontend:** React (with React Select for dropdowns)
+- **Backend:** Node.js + Express
+- **Database:** SQLite (for local development)
+- **Deployment:** GitHub Pages (frontend), Node/Express backend (local or server)
 
-### `npm start`
+---
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Features
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- **Project Phases Table:** Track goals, comments, feedback, frequency, status, and assignments for each project phase.
+- **Team Management:** Add, remove, and reassign team members.
+- **Modern Filters:** Multi-select dropdowns for filtering by team member and status (using React Select).
+- **Smart Pop-Out Editing:**  
+  - Hover over a cell (Goal, Comments, Feedback) to see a wide, yellow, floating pop-out with the full content (scrollable if needed).
+  - Click the pop-out to edit the text in a textarea.
+  - Changes save on blur or Enter.
+- **Partners Logo:** Displayed at the top right of the page.
+- **Persistent Data:** Uses localStorage for frontend persistence; backend endpoints available for real data.
 
-### `npm test`
+---
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Local Development
 
-### `npm run build`
+### Prerequisites
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- Node.js (v16+ recommended)
+- npm
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Setup
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. **Clone the repo:**
+   ```sh
+   git clone https://github.com/leewaller93/leeprojstatus.git
+   cd leeprojstatus
+   ```
 
-### `npm run eject`
+2. **Install dependencies:**
+   ```sh
+   npm install
+   ```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+3. **Start the frontend:**
+   ```sh
+   npm start
+   ```
+   - The app runs on http://localhost:3000 by default.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+4. **Start the backend (optional, for real data):**
+   ```sh
+   cd has-status-backend
+   npm install
+   npm start
+   ```
+   - The backend runs on http://localhost:5000.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+---
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Deployment
 
-## Learn More
+- **Frontend:** Automatically deployed to GitHub Pages at  
+  https://leewaller93.github.io/leeprojstatus/
+- **To deploy:**  
+  1. Commit and push changes to the `main` branch.
+  2. Wait a few minutes for GitHub Pages to update.
+  3. Refresh the site (Ctrl+F5 for hard refresh).
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+---
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Troubleshooting
 
-### Code Splitting
+- **Build Fails with Syntax Error:**  
+  - Remove any stray JSX comments like `{/* Filter UI with single selection */}` outside of JSX return blocks.
+- **Pop-Out Not Working:**  
+  - Ensure the `ExpandingCell` component uses a React portal for the pop-out, so it floats above the table and is not constrained by table layout.
+- **Port Conflicts:**  
+  - If something is running on port 3000, stop it or run the app on another port.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+---
 
-### Analyzing the Bundle Size
+## Recent UI/UX Improvements
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+- Multi-select dropdown filters for team members and statuses.
+- Modern, user-friendly filter UI (React Select).
+- Smart pop-out for table cells (hover to view, click to edit, wide yellow box, scrollable).
+- Partners logo moved to top right.
+- Incremental improvements based on user feedback.
 
-### Making a Progressive Web App
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## Contact
 
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-=======
-# leewhiteboard  Just a little solution to test projects 
->>>>>>> e82af3e0d7781162117793500dba5ae7c873c862
+For questions or further development, contact [leewaller93](https://github.com/leewaller93) or share this README with your developer.
