@@ -257,15 +257,36 @@ function App() {
   const [filterStatus, setFilterStatus] = useState([]);
   const [sortByStatus, setSortByStatus] = useState(false);
 
-  // Fetch phases and team from backend
+  // Helper: fallback to localStorage/demo data if backend fails
+  const fetchWithFallback = async (url, options, fallbackFn) => {
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) throw new Error('Backend unavailable');
+      return await res.json();
+    } catch (e) {
+      return fallbackFn();
+    }
+  };
+
   useEffect(() => {
     fetchPhases();
     fetchTeam();
   }, []);
 
   const fetchPhases = async () => {
-    const res = await fetch(`${API_URL}/phases`);
-    const data = await res.json();
+    const teamData = loadTeam();
+    const data = await fetchWithFallback(
+      `${API_URL}/phases`,
+      undefined,
+      () => {
+        let phases = loadPhases();
+        if (!phases) {
+          phases = generateSamplePhases(teamData);
+          savePhases(phases);
+        }
+        return phases.flatMap(p => p.items.map(i => ({ ...i, stage: p.name })));
+      }
+    );
     // Group by phase name
     const phaseNames = ["Outstanding", "Review/Discussion", "In Process", "Resolved"];
     const grouped = phaseNames.map(name => ({
@@ -276,30 +297,36 @@ function App() {
   };
 
   const fetchTeam = async () => {
-    const res = await fetch(`${API_URL}/team`);
-    const data = await res.json();
+    const data = await fetchWithFallback(
+      `${API_URL}/team`,
+      undefined,
+      () => loadTeam()
+    );
     setTeam(data);
   };
 
+  // Add/edit/delete functions: use backend if available, else localStorage
   const addTeamMember = async () => {
     if (!username || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       alert("Please enter a valid username and email");
       return;
     }
-    const res = await fetch(`${API_URL}/invite`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, org })
-    });
-    if (res.ok) {
-      fetchTeam();
-      setUsername("");
-      setEmail("");
-      setOrg("PHG");
-    } else {
-      const err = await res.json().catch(() => ({}));
-      alert(err.error || err.message || "Failed to add team member");
-    }
+    const body = { username, email, org };
+    const success = await fetchWithFallback(
+      `${API_URL}/invite`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+      () => {
+        const current = loadTeam();
+        const newMember = { id: Date.now(), ...body };
+        const updated = [...current, newMember];
+        saveTeam(updated);
+        return { ok: true };
+      }
+    );
+    fetchTeam();
+    setUsername("");
+    setEmail("");
+    setOrg("PHG");
   };
 
   const addNewTask = async () => {
@@ -307,46 +334,82 @@ function App() {
       alert("Please enter a goal");
       return;
     }
-    const res = await fetch(`${API_URL}/phases`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newTask)
+    const success = await fetchWithFallback(
+      `${API_URL}/phases`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newTask) },
+      () => {
+        let phases = loadPhases();
+        if (!phases) phases = generateSamplePhases(loadTeam());
+        const phaseIdx = phases.findIndex(p => p.name === newTask.phase);
+        const newItem = { ...newTask, id: Date.now() };
+        phases[phaseIdx].items.push(newItem);
+        savePhases(phases);
+        return { ok: true };
+      }
+    );
+    fetchPhases();
+    setNewTask({
+      phase: "Outstanding",
+      goal: "",
+      need: "",
+      comments: "",
+      execute: "N",
+      stage: "Outstanding",
+      commentArea: "",
+      assigned_to: "team"
     });
-    if (res.ok) {
-      fetchPhases();
-      setNewTask({
-        phase: "Outstanding",
-        goal: "",
-        need: "",
-        comments: "",
-        execute: "N",
-        stage: "Outstanding",
-        commentArea: "",
-        assigned_to: "team"
-      });
-    } else {
-      alert("Failed to add task");
-    }
   };
 
   const updatePhaseItem = async (id, phase, updatedItem) => {
-    const res = await fetch(`${API_URL}/phases/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...updatedItem, phase })
-    });
-    if (res.ok) fetchPhases();
+    await fetchWithFallback(
+      `${API_URL}/phases/${id}`,
+      { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...updatedItem, phase }) },
+      () => {
+        let phases = loadPhases();
+        if (!phases) phases = generateSamplePhases(loadTeam());
+        for (const p of phases) {
+          const idx = p.items.findIndex(i => i.id === id);
+          if (idx !== -1) {
+            p.items[idx] = { ...p.items[idx], ...updatedItem, phase };
+            break;
+          }
+        }
+        savePhases(phases);
+        return { ok: true };
+      }
+    );
+    fetchPhases();
   };
 
   const deletePhaseItem = async (id) => {
-    const res = await fetch(`${API_URL}/phases/${id}`, { method: "DELETE" });
-    if (res.ok) fetchPhases();
+    await fetchWithFallback(
+      `${API_URL}/phases/${id}`,
+      { method: "DELETE" },
+      () => {
+        let phases = loadPhases();
+        if (!phases) phases = generateSamplePhases(loadTeam());
+        for (const p of phases) {
+          p.items = p.items.filter(i => i.id !== id);
+        }
+        savePhases(phases);
+        return { ok: true };
+      }
+    );
+    fetchPhases();
   };
 
   const handleDeleteMember = async (member) => {
-    const res = await fetch(`${API_URL}/team/${member.id}`, { method: "DELETE" });
-    if (res.ok) fetchTeam();
-    else alert("Cannot delete: member is assigned to tasks");
+    await fetchWithFallback(
+      `${API_URL}/team/${member.id}`,
+      { method: "DELETE" },
+      () => {
+        const current = loadTeam();
+        const updated = current.filter(m => m.id !== member.id);
+        saveTeam(updated);
+        return { ok: true };
+      }
+    );
+    fetchTeam();
   };
 
   const handleNotWorking = (member) => {
@@ -357,11 +420,16 @@ function App() {
 
   const confirmNotWorking = async () => {
     if (!notWorkingPrompt) return;
-    const res = await fetch(`${API_URL}/team/${notWorkingPrompt.member.id}/not-working`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reassign_to: reassignTo })
-    });
+    const res = await fetchWithFallback(
+      `${API_URL}/team/${notWorkingPrompt.member.id}/not-working`,
+      { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reassign_to: reassignTo }) },
+      () => {
+        const current = loadTeam();
+        const updated = current.map(m => m.id === notWorkingPrompt.member.id ? { ...m, org: "Not Working" } : m);
+        saveTeam(updated);
+        return { ok: true };
+      }
+    );
     if (res.ok) {
       fetchPhases();
       fetchTeam();
