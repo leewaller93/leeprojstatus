@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import Select from 'react-select';
 
@@ -221,12 +221,7 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    fetchPhases();
-    fetchTeam();
-  }, [fetchPhases, fetchTeam]);
-
-  const fetchPhases = async () => {
+  const fetchPhases = useCallback(async () => {
     const teamData = loadTeam();
     const data = await fetchWithFallback(
       `${API_URL}/phases`,
@@ -247,16 +242,21 @@ function App() {
       items: data.filter(item => item.stage === name)
     }));
     setPhases(grouped);
-  };
+  }, []);
 
-  const fetchTeam = async () => {
+  const fetchTeam = useCallback(async () => {
     const data = await fetchWithFallback(
       `${API_URL}/team`,
       undefined,
       () => loadTeam()
     );
     setTeam(data);
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPhases();
+    fetchTeam();
+  }, [fetchPhases, fetchTeam]);
 
   // Add/edit/delete functions: use backend if available, else localStorage
   const addTeamMember = async () => {
@@ -265,12 +265,12 @@ function App() {
       return;
     }
     const body = { username, email, org };
-    const res = await fetchWithFallback(
+    await fetchWithFallback(
       `${API_URL}/invite`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
       () => {
         const current = loadTeam();
-        const newMember = { id: Date.now(), ...body };
+        const newMember = { username, email, org, id: Date.now() };
         const updated = [...current, newMember];
         saveTeam(updated);
         return { ok: true };
@@ -287,7 +287,7 @@ function App() {
       alert("Please enter a goal");
       return;
     }
-    const res = await fetchWithFallback(
+    await fetchWithFallback(
       `${API_URL}/phases`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newTask) },
       () => {
