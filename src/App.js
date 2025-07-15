@@ -185,7 +185,7 @@ function ExpandingCell({ editable, value, onChange }) {
 }
 
 // Backend API URL (update this to your server's public IP/domain as needed)
-const API_URL = "https://YOUR-BACKEND-URL.onrender.com/api";
+const API_URL = "https://has-status-backend.onrender.com/api";
 
 function App() {
   const [team, setTeam] = useState([]);
