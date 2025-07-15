@@ -157,17 +157,20 @@ function ExpandingCell({ children, editable, value, onChange }) {
         minWidth: 300,
         maxWidth: 540,
         minHeight: boxPos.height,
-        maxHeight: 220,
+        maxHeight: 320,
         background: '#fffbe6',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
-        borderRadius: 8,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        borderRadius: 10,
         zIndex: 9999,
-        padding: 12,
+        padding: 16,
         fontSize: 15,
         textAlign: 'left',
-        overflow: 'auto',
+        overflowY: 'auto',
         whiteSpace: 'pre-wrap',
-        transition: 'all 0.2s cubic-bezier(.4,2,.6,1)',
+        transition: 'all 0.22s cubic-bezier(.4,2,.6,1)',
+        border: '1.5px solid #ffe066',
+        outline: 'none',
+        cursor: editing ? 'text' : editable ? 'pointer' : 'default',
       }}
       onMouseLeave={() => { setHovered(false); setEditing(false); }}
       onClick={e => e.stopPropagation()}
@@ -179,13 +182,13 @@ function ExpandingCell({ children, editable, value, onChange }) {
           onChange={e => setEditValue(e.target.value)}
           onBlur={handleSave}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { inputRef.current.blur(); e.preventDefault(); } }}
-          style={{ width: '100%', minHeight: 40, maxHeight: 200, fontSize: 15, padding: 6, borderRadius: 4, border: '1px solid #ccc', background: '#fff', resize: 'vertical', boxSizing: 'border-box', textAlign: 'left', overflow: 'auto' }}
+          style={{ width: '100%', minHeight: 40, maxHeight: 240, fontSize: 15, padding: 8, borderRadius: 6, border: '1.5px solid #ccc', background: '#fff', resize: 'vertical', boxSizing: 'border-box', textAlign: 'left', overflow: 'auto', outline: 'none' }}
         />
       ) : (
-        <div style={{ width: '100%', minHeight: 40, maxHeight: 200, overflowY: 'auto', cursor: editable ? 'pointer' : 'default' }}
+        <div style={{ width: '100%', minHeight: 40, maxHeight: 240, overflowY: 'auto', cursor: editable ? 'pointer' : 'default', color: editValue ? '#222' : '#aaa' }}
           onClick={() => { if (editable) setEditing(true); }}
         >
-          {editValue || <span style={{ color: '#aaa' }}>(No content)</span>}
+          {editValue || <span>(No content)</span>}
         </div>
       )}
     </div>,
@@ -198,26 +201,23 @@ function ExpandingCell({ children, editable, value, onChange }) {
       style={{
         minWidth: 120,
         maxWidth: 180,
-        width: 180,
-        minHeight: 40,
-        maxHeight: 40,
-        verticalAlign: 'top',
+        position: 'relative',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-        background: 'transparent',
-        position: 'relative',
-        zIndex: 1,
-        padding: '8px',
-        fontSize: 15,
-        textAlign: 'left',
         cursor: editable ? 'pointer' : 'default',
+        background: hovered || editing ? '#fffbe6' : undefined,
+        border: hovered || editing ? '1.5px solid #ffe066' : undefined,
+        zIndex: hovered || editing ? 2 : 1,
+        transition: 'background 0.18s, border 0.18s',
       }}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setEditing(false); }}
-      tabIndex={0}
+      onMouseLeave={() => { if (!editing) setHovered(false); }}
+      onClick={() => { if (editable) setEditing(true); }}
     >
-      <span style={{ display: 'block', width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxHeight: 40 }}>{children}</span>
+      <span style={{ display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle' }}>
+        {editValue || <span style={{ color: '#aaa' }}>(No content)</span>}
+      </span>
       {popout}
     </td>
   );
