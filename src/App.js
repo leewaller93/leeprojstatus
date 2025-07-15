@@ -143,6 +143,7 @@ function ExpandingCell({ children, editable, value, onChange }) {
         width: rect.width,
         height: rect.height
       });
+      console.log('ExpandingCell boxPos:', rect);
     } else {
       setBoxPos(null);
     }
@@ -169,29 +170,32 @@ function ExpandingCell({ children, editable, value, onChange }) {
     setHovered(true);
   };
 
+  // DEBUG: Force the pop-out to always render for testing
+  const debugAlwaysShowPopout = true;
+
   // The floating pop-out box
-  const popout = (hovered || editing || popoutHovered) && boxPos ? ReactDOM.createPortal(
+  const popout = (debugAlwaysShowPopout || hovered || editing || popoutHovered) && boxPos ? ReactDOM.createPortal(
     <div
       style={{
         position: 'fixed',
         left: boxPos.left,
-        top: boxPos.top,
+        top: boxPos.top + boxPos.height + 8, // show below cell
         width: 540,
         minWidth: 300,
         maxWidth: 540,
         minHeight: boxPos.height,
         maxHeight: 320,
-        background: '#fffbe6',
+        background: '#ffb3b3', // DEBUG: bright red for visibility
         boxShadow: '0 12px 40px rgba(0,0,0,0.22)',
         borderRadius: 12,
-        zIndex: 99999,
+        zIndex: 999999,
         padding: 18,
         fontSize: 15,
         textAlign: 'left',
         overflowY: 'auto',
         whiteSpace: 'pre-wrap',
         transition: 'all 0.22s cubic-bezier(.4,2,.6,1)',
-        border: '2px solid #ffe066',
+        border: '4px solid #0000ff', // DEBUG: thick blue border
         outline: 'none',
         cursor: editing ? 'text' : editable ? 'pointer' : 'default',
       }}
@@ -199,6 +203,7 @@ function ExpandingCell({ children, editable, value, onChange }) {
       onMouseLeave={handlePopoutMouseLeave}
       onClick={e => e.stopPropagation()}
     >
+      <div style={{fontWeight:'bold',color:'#222',marginBottom:8}}>DEBUG: Pop-out should always be visible</div>
       {editing ? (
         <textarea
           ref={inputRef}
