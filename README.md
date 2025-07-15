@@ -96,3 +96,41 @@ A modern web application for tracking hospital accounting system (HAS) project s
 ## Contact
 
 For questions or further development, contact [leewaller93](https://github.com/leewaller93) or share this README with your developer.
+
+---
+
+## Backend Auto-Deploy (Recommended for Shareable Test Environment)
+
+To ensure your backend is always up-to-date and accessible for your GitHub Pages frontend, set up auto-deploy using GitHub Actions and SSH to your own server (VPS, cloud, or on-prem).
+
+### Prerequisites
+- A server (VPS, cloud, or on-prem) with Node.js and npm installed
+- SSH access to the server
+- Your backend repo cloned on the server
+- (Optional) A process manager like pm2 for running the backend
+
+### Setup Steps
+1. **Generate an SSH key pair** on your local machine or in the GitHub Actions UI:
+   ```sh
+   ssh-keygen -t ed25519 -C "github-actions-deploy"
+   ```
+   - Add the public key (`.pub`) to your server's `~/.ssh/authorized_keys`.
+   - Add the private key as a GitHub Actions secret (e.g., `SSH_PRIVATE_KEY`).
+2. **Configure your server for passwordless SSH login from GitHub Actions.**
+3. **Add the provided GitHub Actions workflow file to `.github/workflows/deploy-backend.yml`.**
+4. **Push to `main` branch:**
+   - On every push, GitHub Actions will SSH into your server, pull the latest code, install dependencies, and restart the backend.
+
+### Example SSH Deploy Workflow
+See `.github/workflows/deploy-backend.yml` in this repo for a template.
+
+### Environment Variables
+- Set your backend API URL in the frontend to your server's public address (e.g., `https://your-server.com/api`).
+- Use `.env` files for secrets and configuration on your server.
+
+### Keeping Everything in Sync
+- Frontend auto-deploys to GitHub Pages on push.
+- Backend auto-deploys to your server on push.
+- All users can access the live test environment at your public GitHub Pages URL.
+
+---

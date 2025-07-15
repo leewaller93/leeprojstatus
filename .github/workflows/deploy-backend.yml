@@ -25,3 +25,8 @@ jobs:
             npm install &&
             pm2 restart server || pm2 start server.js --name has-status-backend
           ' 
+      - name: Seed demo data
+        run: |
+          cd /path/to/your/has-status-backend
+          npm install node-fetch@2
+          SEED_API_URL="https://has-status-backend.onrender.com/api" node seed-demo-data.js 
