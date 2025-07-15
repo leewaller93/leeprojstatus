@@ -57,53 +57,6 @@ function saveTeam(team) {
 }
 
 // Tooltip component
-function SmartTooltip({ children, content }) {
-  const [show, setShow] = useState(false);
-  const [isTruncated, setIsTruncated] = useState(false);
-  const cellRef = useRef();
-
-  useEffect(() => {
-    if (cellRef.current) {
-      setIsTruncated(cellRef.current.scrollWidth > cellRef.current.clientWidth);
-    }
-  }, [content, children]);
-
-  return (
-    <span
-      ref={cellRef}
-      style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', verticalAlign: 'middle', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: isTruncated ? 'pointer' : 'default' }}
-      onMouseEnter={() => isTruncated && setShow(true)}
-      onMouseLeave={() => setShow(false)}
-      tabIndex={0}
-    >
-      {children}
-      {show && isTruncated && (
-        <div style={{
-          position: 'absolute',
-          left: '50%',
-          top: '100%',
-          transform: 'translateX(-50%)',
-          marginTop: 8,
-          background: '#222',
-          color: '#fff',
-          padding: '10px 16px',
-          borderRadius: 8,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
-          zIndex: 9999,
-          minWidth: 180,
-          maxWidth: 400,
-          fontSize: 15,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-        }}>
-          {content}
-        </div>
-      )}
-    </span>
-  );
-}
-
-// Replace SmartTooltip with ExpandingCell
 function ExpandingCell({ editable, value, onChange }) {
   // console.log("ExpandingCell rendered");
   const [showPopout, setShowPopout] = useState(false);
@@ -271,7 +224,7 @@ function App() {
   useEffect(() => {
     fetchPhases();
     fetchTeam();
-  }, []);
+  }, [fetchPhases, fetchTeam]);
 
   const fetchPhases = async () => {
     const teamData = loadTeam();
@@ -312,7 +265,7 @@ function App() {
       return;
     }
     const body = { username, email, org };
-    const success = await fetchWithFallback(
+    const res = await fetchWithFallback(
       `${API_URL}/invite`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
       () => {
@@ -334,7 +287,7 @@ function App() {
       alert("Please enter a goal");
       return;
     }
-    const success = await fetchWithFallback(
+    const res = await fetchWithFallback(
       `${API_URL}/phases`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newTask) },
       () => {
