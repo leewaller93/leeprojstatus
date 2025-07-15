@@ -105,7 +105,7 @@ function SmartTooltip({ children, content }) {
 
 // Replace SmartTooltip with ExpandingCell
 function ExpandingCell({ editable, value, onChange }) {
-  const [hovered, setHovered] = useState(false);
+  const [showPopout, setShowPopout] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const [boxPos, setBoxPos] = useState(null);
@@ -118,7 +118,7 @@ function ExpandingCell({ editable, value, onChange }) {
 
   // Get cell position for pop-out
   useEffect(() => {
-    if ((hovered || editing) && cellRef.current) {
+    if (showPopout && cellRef.current) {
       const rect = cellRef.current.getBoundingClientRect();
       setBoxPos({
         left: rect.left,
@@ -126,11 +126,10 @@ function ExpandingCell({ editable, value, onChange }) {
         width: rect.width,
         height: rect.height
       });
-      console.log('ExpandingCell boxPos:', rect);
-    } else if (!hovered && !editing) {
+    } else if (!showPopout) {
       setBoxPos(null);
     }
-  }, [hovered, editing]);
+  }, [showPopout]);
 
   // Focus textarea when editing
   useEffect(() => {
@@ -145,6 +144,7 @@ function ExpandingCell({ editable, value, onChange }) {
       onChange && onChange(editValue);
     }
     setEditing(false);
+    setShowPopout(false);
   };
 
   // Pop-out content
@@ -152,29 +152,30 @@ function ExpandingCell({ editable, value, onChange }) {
     <div
       style={{
         background: '#fffbe6',
-        border: '3px solid #ffe066',
-        borderRadius: 12,
-        boxShadow: '0 12px 40px rgba(0,0,0,0.22)',
+        border: '2px solid #ffe066',
+        borderRadius: 14,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
         zIndex: 999999,
-        padding: 18,
-        fontSize: 15,
-        minWidth: 320,
-        maxWidth: 540,
-        minHeight: 40,
-        maxHeight: 320,
+        padding: 22,
+        fontSize: 16,
+        minWidth: 340,
+        maxWidth: 600,
+        minHeight: 48,
+        maxHeight: 340,
         overflowY: 'auto',
         whiteSpace: 'pre-wrap',
         position: 'fixed',
         left: boxPos ? boxPos.left : '50%',
-        top: boxPos ? boxPos.top + (boxPos.height || 0) + 8 : '50%',
+        top: boxPos ? boxPos.top + (boxPos.height || 0) + 10 : '50%',
         transform: boxPos ? 'none' : 'translate(-50%, -50%)',
         outline: 'none',
         cursor: editing ? 'text' : editable ? 'pointer' : 'default',
         color: '#222',
+        transition: 'box-shadow 0.2s',
       }}
       onClick={e => e.stopPropagation()}
-      onMouseLeave={() => { if (!editing) setHovered(false); }}
-      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { if (!editing) setShowPopout(false); }}
+      onMouseEnter={() => setShowPopout(true)}
     >
       {editing ? (
         <textarea
@@ -183,11 +184,11 @@ function ExpandingCell({ editable, value, onChange }) {
           onChange={e => setEditValue(e.target.value)}
           onBlur={handleSave}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { inputRef.current.blur(); e.preventDefault(); } }}
-          style={{ width: '100%', minHeight: 40, maxHeight: 240, fontSize: 15, padding: 10, borderRadius: 8, border: '2px solid #ccc', background: '#fff', resize: 'vertical', boxSizing: 'border-box', textAlign: 'left', overflow: 'auto', outline: 'none' }}
+          style={{ width: '100%', minHeight: 48, maxHeight: 240, fontSize: 16, padding: 12, borderRadius: 8, border: '2px solid #ccc', background: '#fff', resize: 'vertical', boxSizing: 'border-box', textAlign: 'left', overflow: 'auto', outline: 'none' }}
         />
       ) : (
         <div
-          style={{ width: '100%', minHeight: 40, maxHeight: 240, overflowY: 'auto', cursor: editable ? 'pointer' : 'default', color: editValue ? '#222' : '#aaa' }}
+          style={{ width: '100%', minHeight: 48, maxHeight: 240, overflowY: 'auto', cursor: editable ? 'pointer' : 'default', color: editValue ? '#222' : '#aaa', fontSize: 16 }}
           onClick={() => { if (editable) setEditing(true); }}
         >
           {editValue || <span>(No content)</span>}
@@ -197,7 +198,7 @@ function ExpandingCell({ editable, value, onChange }) {
   );
 
   // Only show pop-out on hover or editing
-  const popout = (hovered || editing) && (boxPos || editing)
+  const popout = (showPopout || editing) && (boxPos || editing)
     ? ReactDOM.createPortal(popoutContent, document.body)
     : null;
 
@@ -212,13 +213,13 @@ function ExpandingCell({ editable, value, onChange }) {
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
         cursor: editable ? 'pointer' : 'default',
-        background: hovered || editing ? '#fffbe6' : undefined,
-        border: hovered || editing ? '2px solid #ffe066' : undefined,
-        zIndex: hovered || editing ? 2 : 1,
+        background: showPopout || editing ? '#fffbe6' : undefined,
+        border: showPopout || editing ? '2px solid #ffe066' : undefined,
+        zIndex: showPopout || editing ? 2 : 1,
         transition: 'background 0.18s, border 0.18s',
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { if (!editing) setHovered(false); }}
+      onMouseEnter={() => setShowPopout(true)}
+      onMouseLeave={() => { if (!editing) setShowPopout(false); }}
       onClick={() => { if (editable) setEditing(true); }}
     >
       <span style={{ display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle' }}>
