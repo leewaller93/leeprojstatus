@@ -398,6 +398,23 @@ function App() {
     alert("Saved! (Data is now persistent in the backend database.)");
   };
 
+  // Fetch client/hospital name on load
+  useEffect(() => {
+    fetch(`${API_URL}/project`)
+      .then(res => res.json())
+      .then(data => setClientName(data.name || ""));
+  }, []);
+
+  // Save client/hospital name
+  const saveClientName = async () => {
+    await fetch(`${API_URL}/project`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: clientName })
+    });
+    alert("Hospital name saved!");
+  };
+
   return (
     <div style={{ background: '#f9fafb', minHeight: '100vh' }}>
       <div style={{ position: 'absolute', top: 16, right: 32, zIndex: 2000 }}>
@@ -420,6 +437,7 @@ function App() {
             placeholder="Enter client name..."
             style={{ fontSize: 18, padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
           />
+          <button onClick={saveClientName} style={{ fontSize: 16, padding: '8px 16px', borderRadius: 4, background: '#2563eb', color: '#fff', border: 'none', marginLeft: 8 }}>Save</button>
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
