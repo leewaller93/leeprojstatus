@@ -491,12 +491,13 @@ function App() {
     }
   };
 
-  const addNewTask = async () => {
-    if (!newTask.goal) {
+  const addNewTask = async (taskData = null) => {
+    const task = taskData || newTask;
+    if (!task.goal) {
       alert("Please enter a goal");
       return;
     }
-    const taskWithClient = { ...newTask, clientId: currentClientId };
+    const taskWithClient = { ...task, clientId: currentClientId };
     try {
       const response = await fetch(`${API_BASE_URL}/api/phases`, {
         method: "POST", 
@@ -759,6 +760,51 @@ function App() {
     setSelectedTasks([]);
   };
 
+  // Template upload functionality
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const content = e.target.result;
+        const lines = content.split('\n').filter(line => line.trim());
+        
+        const templateTasks = [];
+        for (let i = 0; i < lines.length; i += 6) {
+          if (i + 5 < lines.length) {
+            templateTasks.push({
+              goal: lines[i] || '',
+              need: lines[i + 1] || '',
+              comments: lines[i + 2] || '',
+              execute: lines[i + 3] || 'One-Time',
+              stage: 'Outstanding',
+              commentArea: lines[i + 4] || '',
+              assigned_to: 'PHG'
+            });
+          }
+        }
+
+        if (templateTasks.length > 0) {
+          const isDuplicate = await checkForDuplicateTemplate(templateTasks);
+          if (isDuplicate) {
+            const confirmAdd = window.confirm("You already added this template, do you want to add again?");
+            if (!confirmAdd) return;
+          }
+
+          for (const task of templateTasks) {
+            await addNewTask(task);
+          }
+          alert(`Successfully uploaded ${templateTasks.length} tasks from template!`);
+        }
+      } catch (error) {
+        alert('Error processing template file. Please check the format.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   // Show login page if not logged in
   if (!isLoggedIn) {
     return <LoginPage onLogin={handleLogin} />;
@@ -990,7 +1036,7 @@ function App() {
         </div>
 
         {/* Task Management Section */}
-        {phases.some(phase => phase.items.length > 0) && (
+        {(
           <div style={{ marginBottom: 32, background: "#fff", padding: 20, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
             <h3 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>Task Management</h3>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -1018,6 +1064,30 @@ function App() {
               >
                 👥 Mass Update Assigned
               </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="file"
+                  accept=".txt"
+                  onChange={handleFileUpload}
+                  style={{ display: "none" }}
+                  id="template-upload"
+                />
+                <label
+                  htmlFor="template-upload"
+                  style={{ 
+                    background: "#10b981", 
+                    color: "white", 
+                    padding: "10px 16px", 
+                    borderRadius: 6, 
+                    border: "none", 
+                    cursor: "pointer", 
+                    fontWeight: "bold",
+                    display: "inline-block"
+                  }}
+                >
+                  📁 Upload Template
+                </label>
+              </div>
             </div>
             
             {/* Mass Update UI */}
