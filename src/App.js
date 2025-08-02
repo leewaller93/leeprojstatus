@@ -527,6 +527,12 @@ function App() {
   const [massUpdateValue, setMassUpdateValue] = useState('');
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [availableClients, setAvailableClients] = useState([]);
+  
+  // Bulk rule update state
+  const [isBulkRuleMode, setIsBulkRuleMode] = useState(false);
+  const [bulkRuleField, setBulkRuleField] = useState('');
+  const [bulkRuleCurrentValue, setBulkRuleCurrentValue] = useState('');
+  const [bulkRuleNewValue, setBulkRuleNewValue] = useState('');
 
   const fetchPhases = useCallback(async () => {
     try {
@@ -591,7 +597,23 @@ function App() {
   };
 
   const deleteTeamMember = async (memberId) => {
-    if (!window.confirm("Are you sure you want to delete this team member? This will reassign their tasks to 'PHG'.")) {
+    // Find the team member to delete
+    const memberToDelete = team.find(m => m._id === memberId);
+    if (!memberToDelete) {
+      alert("Team member not found");
+      return;
+    }
+
+    // Check if member has any assigned tasks
+    const allTasks = phases.flatMap(phase => phase.items);
+    const memberTasks = allTasks.filter(task => task.assigned_to === memberToDelete.username);
+    
+    if (memberTasks.length > 0) {
+      alert(`Cannot delete team member. They have ${memberTasks.length} assigned task(s). Please reassign tasks first.`);
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete ${memberToDelete.username}?`)) {
       return;
     }
     
@@ -602,8 +624,7 @@ function App() {
       
       if (response.ok) {
         fetchTeam();
-        fetchPhases(); // Refresh phases to show reassigned tasks
-        alert("Team member deleted successfully. Their tasks have been reassigned to PHG.");
+        alert("Team member deleted successfully.");
       } else {
         const errorData = await response.json();
         alert(`Error deleting team member: ${errorData.error || 'Unknown error'}`);
@@ -719,8 +740,30 @@ function App() {
   const applyPHGStandardTemplate = async () => {
     if (window.confirm('Apply PHG Standard Template to current client?')) {
       try {
+        // Ensure PHG team member exists
+        const phgMemberExists = team.some(member => member.username === 'PHG');
+        if (!phgMemberExists) {
+          // Create PHG team member
+          await fetch(`${API_BASE_URL}/api/team`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: 'PHG',
+              email: 'phghas@phgworks.com',
+              org: 'PHG',
+              clientId: currentClientId
+            })
+          });
+          fetchTeam(); // Refresh team list
+        }
+        
         for (const task of PHG_STANDARD_TEMPLATE) {
-          const taskWithClient = { ...task, clientId: currentClientId };
+          const taskWithClient = { 
+            ...task, 
+            clientId: currentClientId,
+            assigned_to: 'PHG', // Always assign to PHG team member
+            stage: 'Outstanding' // Ensure status is Outstanding
+          };
           await fetch(`${API_BASE_URL}/api/phases`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -739,7 +782,12 @@ function App() {
     if (window.confirm(`Apply PHG Standard Template to ${CLIENTS[clientId]?.name || clientId}?`)) {
       try {
         for (const task of PHG_STANDARD_TEMPLATE) {
-          const taskWithClient = { ...task, clientId: clientId };
+          const taskWithClient = { 
+            ...task, 
+            clientId: clientId,
+            assigned_to: 'PHG', // Always assign to PHG team member
+            stage: 'Outstanding' // Ensure status is Outstanding
+          };
           await fetch(`${API_BASE_URL}/api/phases`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -849,6 +897,7 @@ function App() {
     }
   };
 
+  // Enhanced mass update with bulk rules
   const massUpdateTasks = async () => {
     if (!massUpdateField || !massUpdateValue || selectedTasks.length === 0) {
       alert('Please select field, value, and at least one task');
@@ -874,6 +923,48 @@ function App() {
         setMassUpdateField('');
         setMassUpdateValue('');
         alert('Tasks updated successfully!');
+      } else {
+        alert('Error updating tasks');
+      }
+    } catch (error) {
+      alert('Error updating tasks');
+    }
+  };
+
+  // Bulk rule update - change all tasks with specific current value to new value
+  const bulkRuleUpdate = async (field, currentValue, newValue) => {
+    if (!currentValue || !newValue) {
+      alert('Please select both current and new values');
+      return;
+    }
+
+    const allTasks = phases.flatMap(phase => phase.items);
+    const tasksToUpdate = allTasks.filter(task => task[field] === currentValue);
+    
+    if (tasksToUpdate.length === 0) {
+      alert(`No tasks found with ${field} = "${currentValue}"`);
+      return;
+    }
+
+    if (!window.confirm(`Change all ${tasksToUpdate.length} tasks from "${currentValue}" to "${newValue}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/phases/mass-update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: currentClientId,
+          field: field,
+          value: newValue,
+          taskIds: tasksToUpdate.map(task => task._id)
+        })
+      });
+      
+      if (response.ok) {
+        fetchPhases();
+        alert(`Successfully updated ${tasksToUpdate.length} tasks!`);
       } else {
         alert('Error updating tasks');
       }
@@ -1326,16 +1417,10 @@ function App() {
           </button>
         </div>
 
-        {/* Task Management Section */}
+        {/* Mass Update Section - Moved below filters */}
         <div style={{ marginBottom: 32, background: "#fff", padding: 20, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-          <h3 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>Task Management</h3>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button
-              onClick={clearAllTasksForClient}
-              style={{ background: "#ef4444", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
-            >
-              🗑️ Clear All Tasks
-            </button>
+          <h3 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>Mass Update</h3>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
             <button
               onClick={() => startMassUpdate('stage')}
               style={{ background: "#f59e0b", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
@@ -1348,7 +1433,130 @@ function App() {
             >
               👥 Mass Update Assigned
             </button>
+            <button
+              onClick={() => setIsBulkRuleMode(!isBulkRuleMode)}
+              style={{ background: "#10b981", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
+            >
+              ⚡ Bulk Rules
+            </button>
           </div>
+          
+          {/* Bulk Rule Interface */}
+          {isBulkRuleMode && (
+            <div style={{ marginTop: 16, padding: 16, background: "#f0f9ff", borderRadius: 6, border: "1px solid #0ea5e9" }}>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: "bold", color: "#0c4a6e" }}>
+                ⚡ Bulk Rule: Change All Tasks
+              </h4>
+              <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+                <label style={{ fontWeight: "bold", minWidth: 80, color: "#0c4a6e" }}>
+                  Field:
+                </label>
+                <select
+                  value={bulkRuleField}
+                  onChange={(e) => setBulkRuleField(e.target.value)}
+                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #0ea5e9", minWidth: 120 }}
+                >
+                  <option value="">Select field...</option>
+                  <option value="stage">Status</option>
+                  <option value="assigned_to">Assigned To</option>
+                </select>
+                
+                <label style={{ fontWeight: "bold", minWidth: 80, color: "#0c4a6e" }}>
+                  From:
+                </label>
+                {bulkRuleField === 'stage' ? (
+                  <select
+                    value={bulkRuleCurrentValue}
+                    onChange={(e) => setBulkRuleCurrentValue(e.target.value)}
+                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #0ea5e9", minWidth: 150 }}
+                  >
+                    <option value="">Select current status...</option>
+                    <option value="Outstanding">Outstanding</option>
+                    <option value="Review/Discussion">Review/Discussion</option>
+                    <option value="In Process">In Process</option>
+                    <option value="Resolved">Resolved</option>
+                  </select>
+                ) : bulkRuleField === 'assigned_to' ? (
+                  <select
+                    value={bulkRuleCurrentValue}
+                    onChange={(e) => setBulkRuleCurrentValue(e.target.value)}
+                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #0ea5e9", minWidth: 150 }}
+                  >
+                    <option value="">Select current assignee...</option>
+                    <option value="PHG">PHG</option>
+                    {team.map((member) => (
+                      <option key={member._id} value={member.username}>{member.username}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <select disabled style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #ccc", minWidth: 150 }}>
+                    <option value="">Select field first...</option>
+                  </select>
+                )}
+                
+                <label style={{ fontWeight: "bold", minWidth: 80, color: "#0c4a6e" }}>
+                  To:
+                </label>
+                {bulkRuleField === 'stage' ? (
+                  <select
+                    value={bulkRuleNewValue}
+                    onChange={(e) => setBulkRuleNewValue(e.target.value)}
+                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #0ea5e9", minWidth: 150 }}
+                  >
+                    <option value="">Select new status...</option>
+                    <option value="Outstanding">Outstanding</option>
+                    <option value="Review/Discussion">Review/Discussion</option>
+                    <option value="In Process">In Process</option>
+                    <option value="Resolved">Resolved</option>
+                  </select>
+                ) : bulkRuleField === 'assigned_to' ? (
+                  <select
+                    value={bulkRuleNewValue}
+                    onChange={(e) => setBulkRuleNewValue(e.target.value)}
+                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #0ea5e9", minWidth: 150 }}
+                  >
+                    <option value="">Select new assignee...</option>
+                    <option value="PHG">PHG</option>
+                    {team.map((member) => (
+                      <option key={member._id} value={member.username}>{member.username}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <select disabled style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #ccc", minWidth: 150 }}>
+                    <option value="">Select field first...</option>
+                  </select>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => bulkRuleUpdate(bulkRuleField, bulkRuleCurrentValue, bulkRuleNewValue)}
+                  disabled={!bulkRuleField || !bulkRuleCurrentValue || !bulkRuleNewValue}
+                  style={{ 
+                    background: bulkRuleField && bulkRuleCurrentValue && bulkRuleNewValue ? "#059669" : "#9ca3af", 
+                    color: "white", 
+                    padding: "8px 16px", 
+                    borderRadius: 4, 
+                    border: "none", 
+                    cursor: bulkRuleField && bulkRuleCurrentValue && bulkRuleNewValue ? "pointer" : "not-allowed",
+                    fontWeight: "bold"
+                  }}
+                >
+                  Apply Bulk Rule
+                </button>
+                <button
+                  onClick={() => {
+                    setIsBulkRuleMode(false);
+                    setBulkRuleField('');
+                    setBulkRuleCurrentValue('');
+                    setBulkRuleNewValue('');
+                  }}
+                  style={{ background: "#ef4444", color: "white", padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
           
           {/* Mass Update UI */}
           {isMassUpdateMode && (
@@ -1552,6 +1760,21 @@ function App() {
             </div>
           );
         })}
+
+        {/* Clear All Tasks Section - Added at the bottom */}
+        {phases.some(phase => phase.items.length > 0) && (
+          <div style={{ marginTop: 32, background: "#fff", padding: 20, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+            <h3 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>Task Management</h3>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button
+                onClick={clearAllTasksForClient}
+                style={{ background: "#ef4444", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
+              >
+                🗑️ Clear All Tasks
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
