@@ -1,0 +1,30 @@
+name: Lee Rule Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  lee-rule-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Build and deploy frontend
+        run: npm run deploy
+
+      - name: Trigger Render backend deploy via Deploy Hook
+        run: |
+          curl -fsSL "https://api.render.com/deploy/srv-d1rbgqm3jp1c73bm52i0?key=f1_fTd-OeYk" && echo "[Lee Rule] Render backend deploy triggered!" 

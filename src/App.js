@@ -1144,6 +1144,43 @@ function App() {
           )}
         </div>
 
+        {/* Template Management Section */}
+        <div style={{ marginBottom: 32, background: "#fff", padding: 20, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <h3 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>Template Management</h3>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <button
+              onClick={applyPHGStandardTemplate}
+              style={{ background: "#3b82f6", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
+            >
+              📋 Apply PHG Standard Template
+            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="file"
+                accept=".txt"
+                onChange={handleFileUpload}
+                style={{ display: "none" }}
+                id="template-upload"
+              />
+              <label
+                htmlFor="template-upload"
+                style={{ 
+                  background: "#10b981", 
+                  color: "white", 
+                  padding: "10px 16px", 
+                  borderRadius: 6, 
+                  border: "none", 
+                  cursor: "pointer", 
+                  fontWeight: "bold",
+                  display: "inline-block"
+                }}
+              >
+                📁 Upload Template
+              </label>
+            </div>
+          </div>
+        </div>
+
         <div style={{ marginBottom: 32, background: "#fff", padding: 20, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
           <h3 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>Add New Task</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -1240,144 +1277,7 @@ function App() {
           </div>
         </div>
 
-        {/* Task Management Section */}
-        {(
-          <div style={{ marginBottom: 32, background: "#fff", padding: 20, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-            <h3 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>Task Management</h3>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <button
-                onClick={applyPHGStandardTemplate}
-                style={{ background: "#3b82f6", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
-              >
-                📋 Apply PHG Standard Template
-              </button>
-              <button
-                onClick={clearAllTasksForClient}
-                style={{ background: "#ef4444", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
-              >
-                🗑️ Clear All Tasks
-              </button>
-              <button
-                onClick={() => startMassUpdate('stage')}
-                style={{ background: "#f59e0b", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
-              >
-                📊 Mass Update Status
-              </button>
-              <button
-                onClick={() => startMassUpdate('assigned_to')}
-                style={{ background: "#8b5cf6", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
-              >
-                👥 Mass Update Assigned
-              </button>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="file"
-                  accept=".txt"
-                  onChange={handleFileUpload}
-                  style={{ display: "none" }}
-                  id="template-upload"
-                />
-                <label
-                  htmlFor="template-upload"
-                  style={{ 
-                    background: "#10b981", 
-                    color: "white", 
-                    padding: "10px 16px", 
-                    borderRadius: 6, 
-                    border: "none", 
-                    cursor: "pointer", 
-                    fontWeight: "bold",
-                    display: "inline-block"
-                  }}
-                >
-                  📁 Upload Template
-                </label>
-              </div>
-            </div>
-            
-            {/* Mass Update UI */}
-            {isMassUpdateMode && (
-              <div style={{ marginTop: 16, padding: 16, background: "#f8f9fa", borderRadius: 6, border: "1px solid #e9ecef" }}>
-                <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: "bold" }}>
-                  Mass Update: {massUpdateField === 'stage' ? 'Status' : 'Assigned To'}
-                </h4>
-                <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
-                  <label style={{ fontWeight: "bold", minWidth: 80 }}>
-                    {massUpdateField === 'stage' ? 'New Status:' : 'New Assignee:'}
-                  </label>
-                  {massUpdateField === 'stage' ? (
-                    <select
-                      value={massUpdateValue}
-                      onChange={(e) => setMassUpdateValue(e.target.value)}
-                      style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #ccc", minWidth: 150 }}
-                    >
-                      <option value="">Select status...</option>
-                      <option value="Outstanding">Outstanding</option>
-                      <option value="Review/Discussion">Review/Discussion</option>
-                      <option value="In Process">In Process</option>
-                      <option value="Resolved">Resolved</option>
-                    </select>
-                  ) : (
-                    <select
-                      value={massUpdateValue}
-                      onChange={(e) => setMassUpdateValue(e.target.value)}
-                      style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #ccc", minWidth: 150 }}
-                    >
-                      <option value="">Select assignee...</option>
-                      <option value="PHG">PHG</option>
-                      <option value="team">team</option>
-                      {team.map((member) => (
-                        <option key={member.id} value={member.username}>{member.username}</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                  <button
-                    onClick={selectAllTasks}
-                    style={{ background: "#6b7280", color: "white", padding: "6px 12px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12 }}
-                  >
-                    Select All
-                  </button>
-                  <button
-                    onClick={clearTaskSelection}
-                    style={{ background: "#6b7280", color: "white", padding: "6px 12px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12 }}
-                  >
-                    Clear Selection
-                  </button>
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    onClick={massUpdateTasks}
-                    disabled={!massUpdateValue || selectedTasks.length === 0}
-                    style={{ 
-                      background: massUpdateValue && selectedTasks.length > 0 ? "#22c55e" : "#9ca3af", 
-                      color: "white", 
-                      padding: "8px 16px", 
-                      borderRadius: 4, 
-                      border: "none", 
-                      cursor: massUpdateValue && selectedTasks.length > 0 ? "pointer" : "not-allowed",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    Update Selected Tasks
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsMassUpdateMode(false);
-                      setSelectedTasks([]);
-                      setMassUpdateField('');
-                      setMassUpdateValue('');
-                    }}
-                    style={{ background: "#ef4444", color: "white", padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+
 
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 220 }}>
@@ -1424,6 +1324,113 @@ function App() {
           >
             Clear Filters
           </button>
+        </div>
+
+        {/* Task Management Section */}
+        <div style={{ marginBottom: 32, background: "#fff", padding: 20, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <h3 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>Task Management</h3>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <button
+              onClick={clearAllTasksForClient}
+              style={{ background: "#ef4444", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
+            >
+              🗑️ Clear All Tasks
+            </button>
+            <button
+              onClick={() => startMassUpdate('stage')}
+              style={{ background: "#f59e0b", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
+            >
+              📊 Mass Update Status
+            </button>
+            <button
+              onClick={() => startMassUpdate('assigned_to')}
+              style={{ background: "#8b5cf6", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
+            >
+              👥 Mass Update Assigned
+            </button>
+          </div>
+          
+          {/* Mass Update UI */}
+          {isMassUpdateMode && (
+            <div style={{ marginTop: 16, padding: 16, background: "#f8f9fa", borderRadius: 6, border: "1px solid #e9ecef" }}>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: "bold" }}>
+                Mass Update: {massUpdateField === 'stage' ? 'Status' : 'Assigned To'}
+              </h4>
+              <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
+                <label style={{ fontWeight: "bold", minWidth: 80 }}>
+                  {massUpdateField === 'stage' ? 'New Status:' : 'New Assignee:'}
+                </label>
+                {massUpdateField === 'stage' ? (
+                  <select
+                    value={massUpdateValue}
+                    onChange={(e) => setMassUpdateValue(e.target.value)}
+                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #ccc", minWidth: 150 }}
+                  >
+                    <option value="">Select status...</option>
+                    <option value="Outstanding">Outstanding</option>
+                    <option value="Review/Discussion">Review/Discussion</option>
+                    <option value="In Process">In Process</option>
+                    <option value="Resolved">Resolved</option>
+                  </select>
+                ) : (
+                  <select
+                    value={massUpdateValue}
+                    onChange={(e) => setMassUpdateValue(e.target.value)}
+                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #ccc", minWidth: 150 }}
+                  >
+                    <option value="">Select assignee...</option>
+                    <option value="PHG">PHG</option>
+                    <option value="team">team</option>
+                    {team.map((member) => (
+                      <option key={member.id} value={member.username}>{member.username}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                <button
+                  onClick={selectAllTasks}
+                  style={{ background: "#6b7280", color: "white", padding: "6px 12px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12 }}
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={clearTaskSelection}
+                  style={{ background: "#6b7280", color: "white", padding: "6px 12px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12 }}
+                >
+                  Clear Selection
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={massUpdateTasks}
+                  disabled={!massUpdateValue || selectedTasks.length === 0}
+                  style={{ 
+                    background: massUpdateValue && selectedTasks.length > 0 ? "#22c55e" : "#9ca3af", 
+                    color: "white", 
+                    padding: "8px 16px", 
+                    borderRadius: 4, 
+                    border: "none", 
+                    cursor: massUpdateValue && selectedTasks.length > 0 ? "pointer" : "not-allowed",
+                    fontWeight: "bold"
+                  }}
+                >
+                  Update Selected Tasks
+                </button>
+                <button
+                  onClick={() => {
+                    setIsMassUpdateMode(false);
+                    setSelectedTasks([]);
+                    setMassUpdateField('');
+                    setMassUpdateValue('');
+                  }}
+                  style={{ background: "#ef4444", color: "white", padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {phases.map((phase, phaseIdx) => {
