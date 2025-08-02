@@ -76,12 +76,43 @@ A modern web application for tracking hospital accounting system (HAS) project s
 
 > **Note:** The backend is managed as a submodule from [https://github.com/leewaller93/whiteboard-backend](https://github.com/leewaller93/whiteboard-backend). If you update the backend, be sure to update the submodule reference in this repo and push.
 
+### 🚀 Quick Deploy (Recommended)
+
+**Use the robust deployment script for reliable deployments:**
+
+```powershell
+# Quick deploy (dr1 = deploy-robust.ps1)
+.\dr1.ps1
+
+# Deploy with custom commit message
+.\dr1.ps1 "Your custom message"
+```
+
+### 📋 What the Deployment Script Does
+
+The `deploy-robust.ps1` (dr1) script provides:
+
+- ✅ **Pre-deployment health checks** - Tests both backend and frontend
+- ✅ **Automatic git cleanup** - Stashes changes and pulls latest code
+- ✅ **Backend deployment** - Commits changes, triggers Render, waits for health
+- ✅ **Frontend deployment** - Builds React app, deploys to GitHub Pages
+- ✅ **Post-deployment verification** - Confirms everything is working
+- ✅ **Detailed logging** - Saves logs to `deploy-log-YYYYMMDD-HHMMSS.txt`
+
+### 🔧 Manual Deployment (Legacy)
+
 - **Frontend:** Automatically deployed to GitHub Pages at  
   https://leewaller93.github.io/leeprojstatus/
-- **To deploy:**  
+- **To deploy manually:**  
   1. Commit and push changes to the `main` branch.
   2. Wait a few minutes for GitHub Pages to update.
   3. Refresh the site (Ctrl+F5 for hard refresh).
+
+### 📊 Deployment URLs
+
+- **Frontend:** https://leewaller93.github.io/leeprojstatus/
+- **Backend:** https://has-status-backend.onrender.com/
+- **Health Check:** https://has-status-backend.onrender.com/api/phases?clientId=demo
 
 ---
 
