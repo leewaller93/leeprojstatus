@@ -613,6 +613,29 @@ function App() {
     }
   };
 
+  const markTeamMemberAsNotWorking = async (memberId) => {
+    if (!window.confirm("Are you sure you want to mark this team member as 'Not Working'? This will reassign their tasks to 'PHG'.")) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/team/${memberId}?clientId=${currentClientId}&reassign_to=PHG&performedBy=${currentUser?.username || 'admin'}`, {
+        method: "PUT"
+      });
+      
+      if (response.ok) {
+        fetchTeam();
+        fetchPhases(); // Refresh phases to show reassigned tasks
+        alert("Team member marked as 'Not Working'. Their tasks have been reassigned to PHG.");
+      } else {
+        const errorData = await response.json();
+        alert(`Error marking team member as not working: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      alert("Error marking team member as not working");
+    }
+  };
+
   const addNewTask = async (taskData = null) => {
     const task = taskData || newTask;
     if (!task.goal) {
@@ -1057,39 +1080,63 @@ function App() {
                   <div
                     key={member._id}
                     style={{
-                      background: "#f3f4f6",
+                      background: member.not_working ? "#fee2e2" : "#f3f4f6",
                       padding: "6px 12px",
                       borderRadius: 16,
                       fontSize: 12,
                       fontWeight: "bold",
-                      color: "#374151",
-                      border: "1px solid #d1d5db",
+                      color: member.not_working ? "#dc2626" : "#374151",
+                      border: `1px solid ${member.not_working ? "#fca5a5" : "#d1d5db"}`,
                       display: "flex",
                       alignItems: "center",
                       gap: 8
                     }}
                   >
-                    <span>{member.username} ({member.org})</span>
-                    <button
-                      onClick={() => deleteTeamMember(member._id)}
-                      style={{
-                        background: "#ef4444",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "50%",
-                        width: "16px",
-                        height: "16px",
-                        fontSize: "10px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: 0
-                      }}
-                      title="Delete team member"
-                    >
-                      ×
-                    </button>
+                    <span>{member.username} ({member.org}){member.not_working ? " - Not Working" : ""}</span>
+                    {!member.not_working && (
+                      <>
+                        <button
+                          onClick={() => markTeamMemberAsNotWorking(member._id)}
+                          style={{
+                            background: "#f59e0b",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "50%",
+                            width: "16px",
+                            height: "16px",
+                            fontSize: "10px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: 0
+                          }}
+                          title="Mark as Not Working"
+                        >
+                          ⚠
+                        </button>
+                        <button
+                          onClick={() => deleteTeamMember(member._id)}
+                          style={{
+                            background: "#ef4444",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "50%",
+                            width: "16px",
+                            height: "16px",
+                            fontSize: "10px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: 0
+                          }}
+                          title="Delete team member"
+                        >
+                          ×
+                        </button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
