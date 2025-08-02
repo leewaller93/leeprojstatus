@@ -5,48 +5,147 @@ import { CLIENTS, getClientUrl, getAdminUrl } from './clientConfig';
 // PHG Standard Template
 const PHG_STANDARD_TEMPLATE = [
   {
-    goal: "Complete annual security assessment",
-    need: "2024-12-31",
-    comments: "Comprehensive security review required",
+    goal: "General Ledger Review",
+    need: "",
+    comments: "Audit the hospital's existing general ledger to verify account balances, identify errors, and ensure GAAP compliance.",
     execute: "One-Time",
     stage: "Outstanding",
-    commentArea: "Pending initial review",
+    commentArea: "",
     assigned_to: "PHG"
   },
   {
-    goal: "Update compliance documentation",
-    need: "2024-11-30",
-    comments: "Ensure all policies are current",
+    goal: "Accrual Process Assessment",
+    need: "",
+    comments: "Evaluate current accrual methods for revenue (e.g., unbilled patient services) and expenses (e.g., utilities, salaries) for accuracy and consistency.",
+    execute: "One-Time",
+    stage: "Outstanding",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Chart of Accounts Validation",
+    need: "",
+    comments: "Review and align the hospital's chart of accounts to ensure proper categorization for journal entries and financial reporting.",
+    execute: "One-Time",
+    stage: "Outstanding",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Prior Period Entry Analysis",
+    need: "",
+    comments: "Examine historical journal entries to identify recurring issues or misclassifications, preparing correcting entries as needed.",
+    execute: "One-Time",
+    stage: "Outstanding",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Financial Statement Baseline Review",
+    need: "",
+    comments: "Assess prior financial statements (balance sheet, income statement, cash flow statement) to establish a baseline for ongoing preparation and ensure compliance with GAAP and HIPAA.",
+    execute: "One-Time",
+    stage: "Outstanding",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Revenue Accrual Entries",
+    need: "",
+    comments: "Post journal entries for accrued revenue from unbilled patient services, using patient encounter data and estimated insurance reimbursements.",
+    execute: "Weekly",
+    stage: "Outstanding",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Expense Accrual Entries",
+    need: "",
+    comments: "Record accrued expenses for incurred but unpaid costs (e.g., utilities, vendor services) based on historical data or pending invoices.",
+    execute: "Weekly",
+    stage: "Outstanding",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Cash Receipt Journal Entries",
+    need: "",
+    comments: "Log journal entries for cash receipts from patients or insurers, debiting cash and crediting revenue or accounts receivable.",
+    execute: "Weekly",
+    stage: "Outstanding",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Preliminary Journal Review",
+    need: "",
+    comments: "Review weekly journal entries for correct account coding, completeness, and supporting documentation (e.g., payment records).",
+    execute: "Weekly",
+    stage: "Outstanding",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Adjusting Entry Corrections",
+    need: "",
+    comments: "Prepare and post adjusting entries to correct errors or discrepancies identified during weekly general ledger reviews.",
+    execute: "Weekly",
+    stage: "Outstanding",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Month-End Accrual Finalization",
+    need: "",
+    comments: "Finalize and post accrual entries for revenue (e.g., unbilled procedures, pending claims) and expenses (e.g., salaries, leases) to align with GAAP.",
     execute: "Monthly",
     stage: "Outstanding",
-    commentArea: "Documentation review needed",
+    commentArea: "",
     assigned_to: "PHG"
   },
   {
-    goal: "Conduct staff training session",
-    need: "2024-10-15",
-    comments: "Annual compliance training",
-    execute: "One-Time",
-    stage: "Outstanding",
-    commentArea: "Schedule training session",
-    assigned_to: "PHG"
-  },
-  {
-    goal: "Review and update disaster recovery plan",
-    need: "2024-12-15",
-    comments: "Annual DR plan review",
-    execute: "One-Time",
-    stage: "Outstanding",
-    commentArea: "Plan review scheduled",
-    assigned_to: "PHG"
-  },
-  {
-    goal: "Perform quarterly system maintenance",
-    need: "2024-09-30",
-    comments: "Regular system updates and maintenance",
+    goal: "Depreciation Journal Entries",
+    need: "",
+    comments: "Record monthly depreciation entries for hospital assets (e.g., medical equipment, facilities) using established schedules.",
     execute: "Monthly",
     stage: "Outstanding",
-    commentArea: "Maintenance window planned",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Prepaid Expense Amortization",
+    need: "",
+    comments: "Post journal entries to amortize prepaid expenses (e.g., insurance, software licenses) over their applicable periods.",
+    execute: "Monthly",
+    stage: "Outstanding",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Financial Statement Preparation",
+    need: "",
+    comments: "Prepare monthly financial statements (balance sheet, income statement, cash flow statement) using journal entry data, ensuring accuracy and GAAP compliance.",
+    execute: "Monthly",
+    stage: "Outstanding",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Comprehensive Ledger and Financial Review",
+    need: "",
+    comments: "Conduct a detailed review of all monthly journal entries and financial statements, verifying accuracy, accrual integrity, and compliance with GAAP and HIPAA.",
+    execute: "Monthly",
+    stage: "Outstanding",
+    commentArea: "",
+    assigned_to: "PHG"
+  },
+  {
+    goal: "Accrual Reversal Entries",
+    need: "",
+    comments: "Post reversing entries for prior month's accruals (e.g., paid invoices, settled claims) to prevent double-counting in the ledger.",
+    execute: "Monthly",
+    stage: "Outstanding",
+    commentArea: "",
     assigned_to: "PHG"
   }
 ];
@@ -488,6 +587,29 @@ function App() {
       }
     } catch (error) {
       alert("Error adding team member");
+    }
+  };
+
+  const deleteTeamMember = async (memberId) => {
+    if (!window.confirm("Are you sure you want to delete this team member? This will reassign their tasks to 'PHG'.")) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/team/${memberId}?clientId=${currentClientId}&performedBy=${currentUser?.username || 'admin'}`, {
+        method: "DELETE"
+      });
+      
+      if (response.ok) {
+        fetchTeam();
+        fetchPhases(); // Refresh phases to show reassigned tasks
+        alert("Team member deleted successfully. Their tasks have been reassigned to PHG.");
+      } else {
+        const errorData = await response.json();
+        alert(`Error deleting team member: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      alert("Error deleting team member");
     }
   };
 
@@ -933,7 +1055,7 @@ function App() {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {team.map((member) => (
                   <div
-                    key={member.id}
+                    key={member._id}
                     style={{
                       background: "#f3f4f6",
                       padding: "6px 12px",
@@ -941,10 +1063,33 @@ function App() {
                       fontSize: 12,
                       fontWeight: "bold",
                       color: "#374151",
-                      border: "1px solid #d1d5db"
+                      border: "1px solid #d1d5db",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8
                     }}
                   >
-                    {member.username} ({member.org})
+                    <span>{member.username} ({member.org})</span>
+                    <button
+                      onClick={() => deleteTeamMember(member._id)}
+                      style={{
+                        background: "#ef4444",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "50%",
+                        width: "16px",
+                        height: "16px",
+                        fontSize: "10px",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 0
+                      }}
+                      title="Delete team member"
+                    >
+                      ×
+                    </button>
                   </div>
                 ))}
               </div>
