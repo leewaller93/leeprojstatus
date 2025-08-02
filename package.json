@@ -18,7 +18,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "echo 'Build completed'",
+    "build": "react-scripts build",
     "build:backend": "cd has-status-backend && npm install && echo 'Backend build complete'",
     "test": "react-scripts test",
     "eject": "react-scripts eject",

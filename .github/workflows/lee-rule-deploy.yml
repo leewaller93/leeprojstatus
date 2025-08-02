@@ -22,9 +22,12 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Build and deploy frontend
-        run: npm run deploy
+      - name: Build frontend
+        run: npm run build
+
+      - name: Deploy frontend to GitHub Pages
+        run: npx gh-pages -d build
 
       - name: Trigger Render backend deploy via Deploy Hook
         run: |
-          curl -fsSL "https://api.render.com/deploy/srv-d1rbgqm3jp1c73bm52i0?key=f1_fTd-OeYk" && echo "[Lee Rule] Render backend deploy triggered!" 
+          curl -fsSL "https://api.render.com/deploy/srv-d1se50je5dus739jr700?key=PEv39pOpIA4" && echo "[Lee Rule] Render backend deploy triggered!" 
