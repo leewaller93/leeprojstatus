@@ -888,18 +888,6 @@ function App() {
 
       <div style={{ padding: 32, maxWidth: 900, margin: '0 auto' }}>
         <h1 style={{ fontSize: 32, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: '#1f2937' }}>HAS Status</h1>
-      
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 24, gap: 12 }}>
-          <label htmlFor="clientName" style={{ fontWeight: "bold", fontSize: 18 }}>Client Name:</label>
-          <input
-            id="clientName"
-            type="text"
-            value={clientName}
-            onChange={e => setClientName(e.target.value)}
-            placeholder="Enter client name..."
-            style={{ fontSize: 18, padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
-          />
-        </div>
 
         <div style={{ marginBottom: 32, background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
           <h3 style={{ fontWeight: "bold", marginBottom: 8 }}>Add Team Member</h3>
@@ -937,6 +925,31 @@ function App() {
               Add
             </button>
           </div>
+          
+          {/* Team Members Display */}
+          {team.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <h4 style={{ fontWeight: "bold", marginBottom: 8, fontSize: 14 }}>Current Team Members:</h4>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {team.map((member) => (
+                  <div
+                    key={member.id}
+                    style={{
+                      background: "#f3f4f6",
+                      padding: "6px 12px",
+                      borderRadius: 16,
+                      fontSize: 12,
+                      fontWeight: "bold",
+                      color: "#374151",
+                      border: "1px solid #d1d5db"
+                    }}
+                  >
+                    {member.username} ({member.org})
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ marginBottom: 32, background: "#fff", padding: 20, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
