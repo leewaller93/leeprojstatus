@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: has-status-backend
+    env: node
+    buildCommand: cd has-status-backend && npm install
+    startCommand: cd has-status-backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production 

@@ -1,0 +1,11 @@
+# dr1 - Shorthand for deploy-robust.ps1
+# This file allows you to use "dr1" instead of typing "deploy-robust.ps1"
+
+# Check if a commit message was provided
+if ($args.Count -gt 0) {
+    # If arguments provided, pass them to the robust deployment script
+    powershell -ExecutionPolicy Bypass -File "deploy-robust.ps1" @args
+} else {
+    # If no arguments, run with default commit message
+    powershell -ExecutionPolicy Bypass -File "deploy-robust.ps1"
+} 
