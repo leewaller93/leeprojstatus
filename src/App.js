@@ -11,7 +11,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "One-Time",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Accrual Process Assessment",
@@ -20,7 +20,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "One-Time",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Chart of Accounts Validation",
@@ -29,7 +29,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "One-Time",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Prior Period Entry Analysis",
@@ -38,7 +38,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "One-Time",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Financial Statement Baseline Review",
@@ -47,7 +47,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "One-Time",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Revenue Accrual Entries",
@@ -56,7 +56,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "Weekly",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Expense Accrual Entries",
@@ -65,7 +65,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "Weekly",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Cash Receipt Journal Entries",
@@ -74,7 +74,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "Weekly",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Preliminary Journal Review",
@@ -83,7 +83,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "Weekly",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Adjusting Entry Corrections",
@@ -92,7 +92,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "Weekly",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Month-End Accrual Finalization",
@@ -101,7 +101,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "Monthly",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Depreciation Journal Entries",
@@ -110,7 +110,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "Monthly",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Prepaid Expense Amortization",
@@ -119,7 +119,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "Monthly",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Financial Statement Preparation",
@@ -128,7 +128,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "Monthly",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Comprehensive Ledger and Financial Review",
@@ -137,7 +137,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "Monthly",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   },
   {
     goal: "Accrual Reversal Entries",
@@ -146,7 +146,7 @@ const PHG_STANDARD_TEMPLATE = [
     execute: "Monthly",
     stage: "Outstanding",
     commentArea: "",
-    assigned_to: "PHG"
+    assigned_to: "PHGHAS"
   }
 ];
 
@@ -740,16 +740,16 @@ function App() {
   const applyPHGStandardTemplate = async () => {
     if (window.confirm('Apply PHG Standard Template to current client?')) {
       try {
-        // Ensure PHG team member exists
-        const phgMemberExists = team.some(member => member.username === 'PHG');
-        if (!phgMemberExists) {
-          // Create PHG team member
-          await fetch(`${API_BASE_URL}/api/team`, {
+        // Ensure PHGHAS team member exists
+        const phghasMemberExists = team.some(member => member.username === 'PHGHAS');
+        if (!phghasMemberExists) {
+          // Create PHGHAS team member
+          await fetch(`${API_BASE_URL}/api/invite`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              username: 'PHG',
-              email: 'phghas@phgworks.com',
+              username: 'PHGHAS',
+              email: 'phghas@phg.com',
               org: 'PHG',
               clientId: currentClientId
             })
@@ -761,7 +761,7 @@ function App() {
           const taskWithClient = { 
             ...task, 
             clientId: currentClientId,
-            assigned_to: 'PHG', // Always assign to PHG team member
+            assigned_to: 'PHGHAS', // Always assign to PHGHAS team member
             stage: 'Outstanding' // Ensure status is Outstanding
           };
           await fetch(`${API_BASE_URL}/api/phases`, {
@@ -785,7 +785,7 @@ function App() {
           const taskWithClient = { 
             ...task, 
             clientId: clientId,
-            assigned_to: 'PHG', // Always assign to PHG team member
+            assigned_to: 'PHGHAS', // Always assign to PHGHAS team member
             stage: 'Outstanding' // Ensure status is Outstanding
           };
           await fetch(`${API_BASE_URL}/api/phases`, {
@@ -835,7 +835,7 @@ function App() {
             execute: task.execute,
             stage: 'Outstanding',
             commentArea: task.commentArea,
-            assigned_to: 'PHG',
+            assigned_to: 'PHGHAS',
             clientId: currentClientId
           };
           await fetch(`${API_BASE_URL}/api/phases`, {
@@ -1017,7 +1017,7 @@ function App() {
               execute: lines[i + 3] || 'One-Time',
               stage: 'Outstanding',
               commentArea: lines[i + 4] || '',
-              assigned_to: 'PHG'
+              assigned_to: 'PHGHAS'
             });
           }
         }
