@@ -528,11 +528,19 @@ function App() {
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [availableClients, setAvailableClients] = useState([]);
   
-  // Bulk rule update state
-  const [isBulkRuleMode, setIsBulkRuleMode] = useState(false);
-  const [bulkRuleField, setBulkRuleField] = useState('');
-  const [bulkRuleCurrentValue, setBulkRuleCurrentValue] = useState('');
-  const [bulkRuleNewValue, setBulkRuleNewValue] = useState('');
+  // Bulk rule update state (removed - no longer used)
+  
+  // Edit team member state
+  const [editingMember, setEditingMember] = useState(null);
+  const [editMemberName, setEditMemberName] = useState('');
+  const [editMemberEmail, setEditMemberEmail] = useState('');
+  
+  // Mass ETC date update state
+  const [isMassETCMode, setIsMassETCMode] = useState(false);
+  const [massETCDate, setMassETCDate] = useState('');
+  
+  // Due date filter state
+  const [filterDueDate, setFilterDueDate] = useState('');
 
   const fetchPhases = useCallback(async () => {
     try {
@@ -654,6 +662,90 @@ function App() {
       }
     } catch (error) {
       alert("Error marking team member as not working");
+    }
+  };
+
+  const editTeamMember = async (memberId) => {
+    const member = team.find(m => m._id === memberId);
+    if (!member) return;
+    
+    setEditingMember(member);
+    setEditMemberName(member.username);
+    setEditMemberEmail(member.email);
+  };
+
+  const saveTeamMemberEdit = async () => {
+    if (!editMemberName || !editMemberEmail) {
+      alert("Please enter both name and email");
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/team/${editingMember._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: editMemberName,
+          email: editMemberEmail,
+          clientId: currentClientId
+        })
+      });
+      
+      if (response.ok) {
+        fetchTeam();
+        setEditingMember(null);
+        setEditMemberName('');
+        setEditMemberEmail('');
+        alert("Team member updated successfully");
+      } else {
+        alert("Error updating team member");
+      }
+    } catch (error) {
+      alert("Error updating team member");
+    }
+  };
+
+  const cancelTeamMemberEdit = () => {
+    setEditingMember(null);
+    setEditMemberName('');
+    setEditMemberEmail('');
+  };
+
+  const massUpdateETCDate = async () => {
+    if (!massETCDate) {
+      alert("Please select a date");
+      return;
+    }
+    
+    if (selectedTasks.length === 0) {
+      alert("Please select at least one task");
+      return;
+    }
+    
+    if (!window.confirm(`Update ETC date to ${massETCDate} for ${selectedTasks.length} selected tasks?`)) {
+      return;
+    }
+    
+    try {
+      let successCount = 0;
+      for (const taskId of selectedTasks) {
+        const response = await fetch(`${API_BASE_URL}/api/phases/${taskId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ need: massETCDate })
+        });
+        if (response.ok) {
+          successCount++;
+        }
+      }
+      
+      fetchPhases();
+      setSelectedTasks([]);
+      setIsMassETCMode(false);
+      setMassETCDate('');
+      alert(`Successfully updated ${successCount} tasks`);
+    } catch (error) {
+      alert("Error updating ETC dates");
     }
   };
 
@@ -931,47 +1023,7 @@ function App() {
     }
   };
 
-  // Bulk rule update - change all tasks with specific current value to new value
-  const bulkRuleUpdate = async (field, currentValue, newValue) => {
-    if (!currentValue || !newValue) {
-      alert('Please select both current and new values');
-      return;
-    }
 
-    const allTasks = phases.flatMap(phase => phase.items);
-    const tasksToUpdate = allTasks.filter(task => task[field] === currentValue);
-    
-    if (tasksToUpdate.length === 0) {
-      alert(`No tasks found with ${field} = "${currentValue}"`);
-      return;
-    }
-
-    if (!window.confirm(`Change all ${tasksToUpdate.length} tasks from "${currentValue}" to "${newValue}"?`)) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/phases/mass-update`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: currentClientId,
-          field: field,
-          value: newValue,
-          taskIds: tasksToUpdate.map(task => task._id)
-        })
-      });
-      
-      if (response.ok) {
-        fetchPhases();
-        alert(`Successfully updated ${tasksToUpdate.length} tasks!`);
-      } else {
-        alert('Error updating tasks');
-      }
-    } catch (error) {
-      alert('Error updating tasks');
-    }
-  };
 
   const startMassUpdate = (field) => {
     setMassUpdateField(field);
@@ -1187,6 +1239,26 @@ function App() {
                     {!member.not_working && (
                       <>
                         <button
+                          onClick={() => editTeamMember(member._id)}
+                          style={{
+                            background: "#3b82f6",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "50%",
+                            width: "16px",
+                            height: "16px",
+                            fontSize: "10px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: 0
+                          }}
+                          title="Edit team member"
+                        >
+                          ✏
+                        </button>
+                        <button
                           onClick={() => markTeamMemberAsNotWorking(member._id)}
                           style={{
                             background: "#f59e0b",
@@ -1230,6 +1302,80 @@ function App() {
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Edit Team Member Modal */}
+          {editingMember && (
+            <div style={{ 
+              position: 'fixed', 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0, 
+              background: 'rgba(0,0,0,0.5)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              zIndex: 1000
+            }}>
+              <div style={{ 
+                background: 'white', 
+                padding: '24px', 
+                borderRadius: '8px', 
+                minWidth: '400px',
+                boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+              }}>
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: 'bold' }}>
+                  Edit Team Member
+                </h3>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Name:</label>
+                  <input
+                    type="text"
+                    value={editMemberName}
+                    onChange={e => setEditMemberName(e.target.value)}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  />
+                </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Email:</label>
+                  <input
+                    type="email"
+                    value={editMemberEmail}
+                    onChange={e => setEditMemberEmail(e.target.value)}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={cancelTeamMemberEdit}
+                    style={{ 
+                      background: '#6b7280', 
+                      color: 'white', 
+                      padding: '8px 16px', 
+                      borderRadius: '4px', 
+                      border: 'none', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveTeamMemberEdit}
+                    style={{ 
+                      background: '#22c55e', 
+                      color: 'white', 
+                      padding: '8px 16px', 
+                      borderRadius: '4px', 
+                      border: 'none', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    Save
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1400,6 +1546,22 @@ function App() {
               styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
             />
           </div>
+          <div style={{ minWidth: 220 }}>
+            <label style={{ fontWeight: 'bold', marginRight: 8, display: 'block' }}>Filter by Due Date:</label>
+            <input
+              type="date"
+              value={filterDueDate}
+              onChange={e => setFilterDueDate(e.target.value)}
+              placeholder="Select end date..."
+              style={{ 
+                width: '100%', 
+                padding: '8px', 
+                borderRadius: '4px', 
+                border: '1px solid #ccc',
+                height: '40px'
+              }}
+            />
+          </div>
           <button 
             onClick={() => setSortByStatus(s => !s)} 
             style={{ padding: '6px 16px', borderRadius: 4, border: '1px solid #ccc', background: '#f3f4f6', fontWeight: 'bold', cursor: 'pointer', height: 40, alignSelf: 'end' }}
@@ -1410,6 +1572,7 @@ function App() {
             onClick={() => {
               setFilterMember([]);
               setFilterStatus([]);
+              setFilterDueDate('');
             }} 
             style={{ padding: '6px 16px', borderRadius: 4, border: '1px solid #ccc', background: '#ef4444', color: 'white', fontWeight: 'bold', cursor: 'pointer', height: 40, alignSelf: 'end' }}
           >
@@ -1434,121 +1597,65 @@ function App() {
               👥 Mass Update Assigned
             </button>
             <button
-              onClick={() => setIsBulkRuleMode(!isBulkRuleMode)}
+              onClick={() => setIsMassETCMode(!isMassETCMode)}
               style={{ background: "#10b981", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
             >
-              ⚡ Bulk Rules
+              📅 Mass Update ETC Date
             </button>
           </div>
           
-          {/* Bulk Rule Interface */}
-          {isBulkRuleMode && (
-            <div style={{ marginTop: 16, padding: 16, background: "#f0f9ff", borderRadius: 6, border: "1px solid #0ea5e9" }}>
-              <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: "bold", color: "#0c4a6e" }}>
-                ⚡ Bulk Rule: Change All Tasks
+          {/* Mass ETC Date Update Interface */}
+          {isMassETCMode && (
+            <div style={{ marginTop: 16, padding: 16, background: "#f0fdf4", borderRadius: 6, border: "1px solid #22c55e" }}>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: "bold", color: "#166534" }}>
+                📅 Mass Update ETC Date
               </h4>
               <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-                <label style={{ fontWeight: "bold", minWidth: 80, color: "#0c4a6e" }}>
-                  Field:
+                <label style={{ fontWeight: "bold", minWidth: 80, color: "#166534" }}>
+                  New ETC Date:
                 </label>
-                <select
-                  value={bulkRuleField}
-                  onChange={(e) => setBulkRuleField(e.target.value)}
-                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #0ea5e9", minWidth: 120 }}
+                <input
+                  type="date"
+                  value={massETCDate}
+                  onChange={(e) => setMassETCDate(e.target.value)}
+                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #22c55e", minWidth: 150 }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                <button
+                  onClick={selectAllTasks}
+                  style={{ background: "#3b82f6", color: "white", padding: "6px 12px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12 }}
                 >
-                  <option value="">Select field...</option>
-                  <option value="stage">Status</option>
-                  <option value="assigned_to">Assigned To</option>
-                </select>
-                
-                <label style={{ fontWeight: "bold", minWidth: 80, color: "#0c4a6e" }}>
-                  From:
-                </label>
-                {bulkRuleField === 'stage' ? (
-                  <select
-                    value={bulkRuleCurrentValue}
-                    onChange={(e) => setBulkRuleCurrentValue(e.target.value)}
-                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #0ea5e9", minWidth: 150 }}
-                  >
-                    <option value="">Select current status...</option>
-                    <option value="Outstanding">Outstanding</option>
-                    <option value="Review/Discussion">Review/Discussion</option>
-                    <option value="In Process">In Process</option>
-                    <option value="Resolved">Resolved</option>
-                  </select>
-                ) : bulkRuleField === 'assigned_to' ? (
-                  <select
-                    value={bulkRuleCurrentValue}
-                    onChange={(e) => setBulkRuleCurrentValue(e.target.value)}
-                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #0ea5e9", minWidth: 150 }}
-                  >
-                    <option value="">Select current assignee...</option>
-                    <option value="PHG">PHG</option>
-                    {team.map((member) => (
-                      <option key={member._id} value={member.username}>{member.username}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <select disabled style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #ccc", minWidth: 150 }}>
-                    <option value="">Select field first...</option>
-                  </select>
-                )}
-                
-                <label style={{ fontWeight: "bold", minWidth: 80, color: "#0c4a6e" }}>
-                  To:
-                </label>
-                {bulkRuleField === 'stage' ? (
-                  <select
-                    value={bulkRuleNewValue}
-                    onChange={(e) => setBulkRuleNewValue(e.target.value)}
-                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #0ea5e9", minWidth: 150 }}
-                  >
-                    <option value="">Select new status...</option>
-                    <option value="Outstanding">Outstanding</option>
-                    <option value="Review/Discussion">Review/Discussion</option>
-                    <option value="In Process">In Process</option>
-                    <option value="Resolved">Resolved</option>
-                  </select>
-                ) : bulkRuleField === 'assigned_to' ? (
-                  <select
-                    value={bulkRuleNewValue}
-                    onChange={(e) => setBulkRuleNewValue(e.target.value)}
-                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #0ea5e9", minWidth: 150 }}
-                  >
-                    <option value="">Select new assignee...</option>
-                    <option value="PHG">PHG</option>
-                    {team.map((member) => (
-                      <option key={member._id} value={member.username}>{member.username}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <select disabled style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #ccc", minWidth: 150 }}>
-                    <option value="">Select field first...</option>
-                  </select>
-                )}
+                  Select All Tasks
+                </button>
+                <button
+                  onClick={clearTaskSelection}
+                  style={{ background: "#6b7280", color: "white", padding: "6px 12px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12 }}
+                >
+                  Clear Selection
+                </button>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
-                  onClick={() => bulkRuleUpdate(bulkRuleField, bulkRuleCurrentValue, bulkRuleNewValue)}
-                  disabled={!bulkRuleField || !bulkRuleCurrentValue || !bulkRuleNewValue}
+                  onClick={massUpdateETCDate}
+                  disabled={!massETCDate || selectedTasks.length === 0}
                   style={{ 
-                    background: bulkRuleField && bulkRuleCurrentValue && bulkRuleNewValue ? "#059669" : "#9ca3af", 
+                    background: massETCDate && selectedTasks.length > 0 ? "#059669" : "#9ca3af", 
                     color: "white", 
                     padding: "8px 16px", 
                     borderRadius: 4, 
                     border: "none", 
-                    cursor: bulkRuleField && bulkRuleCurrentValue && bulkRuleNewValue ? "pointer" : "not-allowed",
+                    cursor: massETCDate && selectedTasks.length > 0 ? "pointer" : "not-allowed",
                     fontWeight: "bold"
                   }}
                 >
-                  Apply Bulk Rule
+                  Update Selected Tasks ({selectedTasks.length})
                 </button>
                 <button
                   onClick={() => {
-                    setIsBulkRuleMode(false);
-                    setBulkRuleField('');
-                    setBulkRuleCurrentValue('');
-                    setBulkRuleNewValue('');
+                    setIsMassETCMode(false);
+                    setSelectedTasks([]);
+                    setMassETCDate('');
                   }}
                   style={{ background: "#ef4444", color: "white", padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
                 >
@@ -1645,6 +1752,20 @@ function App() {
           let items = phase.items;
           if (filterMember.length > 0) items = items.filter(i => filterMember.includes(i.assigned_to));
           if (filterStatus.length > 0) items = items.filter(i => filterStatus.includes(i.stage));
+          
+          // Filter by due date (ETC date)
+          if (filterDueDate) {
+            const filterDate = new Date(filterDueDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            items = items.filter(i => {
+              if (!i.need) return false;
+              const taskDate = new Date(i.need);
+              return taskDate >= today && taskDate <= filterDate;
+            });
+          }
+          
           if (sortByStatus) {
             items = [...items].sort((a, b) => a.stage.localeCompare(b.stage));
           }
