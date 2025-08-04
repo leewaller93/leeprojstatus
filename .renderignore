@@ -1,0 +1,6 @@
+# Ignore everything except the backend
+*
+!has-status-backend/
+!has-status-backend/**
+!render.yaml
+!.render-buildpacks 
