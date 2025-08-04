@@ -7,4 +7,14 @@ services:
     rootDir: has-status-backend
     envVars:
       - key: NODE_ENV
-        value: production 
+        value: production
+    ignoreFiles:
+      - "src/**"
+      - "public/**"
+      - "package-lock.json"
+      - "node_modules/**"
+      - "build/**"
+      - "*.md"
+      - "deploy-*.ps1"
+      - "DEPLOYMENT-*.md"
+      - "PROJECT-DOCUMENTATION.md" 

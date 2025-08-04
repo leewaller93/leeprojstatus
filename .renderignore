@@ -1,6 +1,14 @@
-# Ignore everything except the backend
-*
-!has-status-backend/
-!has-status-backend/**
-!render.yaml
-!.render-buildpacks 
+# COMPLETELY IGNORE FRONTEND - ONLY BUILD BACKEND
+src/
+public/
+build/
+node_modules/
+package-lock.json
+*.md
+deploy-*.ps1
+DEPLOYMENT-*.md
+PROJECT-DOCUMENTATION.md
+.git/
+.github/
+.gitignore
+README.md 
