@@ -4,6 +4,7 @@ services:
     env: node
     buildCommand: cd has-status-backend && npm install
     startCommand: cd has-status-backend && npm start
+    rootDir: has-status-backend
     envVars:
       - key: NODE_ENV
         value: production 
