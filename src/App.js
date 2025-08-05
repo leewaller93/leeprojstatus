@@ -2,6 +2,30 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Select from 'react-select';
 import { CLIENTS } from './clientConfig';
 
+// Browser history management
+const useBrowserHistory = () => {
+  useEffect(() => {
+    const handlePopState = (event) => {
+      // Prevent the app from exiting when back button is pressed
+      event.preventDefault();
+      
+      // If we're on the main app and back is pressed, stay on the app
+      if (window.location.pathname === '/leeprojstatus/' || window.location.pathname === '/') {
+        window.history.pushState(null, '', window.location.pathname);
+      }
+    };
+
+    // Push initial state to prevent immediate back navigation
+    window.history.pushState(null, '', window.location.pathname);
+    
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+};
+
 // PHG Standard Template
 const PHG_STANDARD_TEMPLATE = [
   {
@@ -182,22 +206,38 @@ function LoginPage({ onLogin }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
 
+    // Check if it's a standard user first
     const user = TEST_USERS[username.toLowerCase()];
-    if (!user) {
-      setError('Invalid username');
+    if (user && user.password === password) {
+      onLogin(user);
       return;
     }
 
-    if (user.password !== password) {
-      setError('Invalid password');
-      return;
+    // Check if it's a team member login
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/internal-team/${username.toLowerCase()}`);
+      if (response.ok) {
+        const teamMember = await response.json();
+        // For now, we'll use a simple password check
+        // In production, this should be proper authentication
+        if (password === '1234') { // Default password for team members
+          onLogin({
+            ...teamMember,
+            type: 'team_member',
+            assignedClients: teamMember.assignedClients
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking team member:', error);
     }
 
-    onLogin(user);
+    setError('Invalid username or password');
   };
 
   return (
@@ -271,7 +311,10 @@ function LoginPage({ onLogin }) {
 
 // Admin Dashboard Component
 function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases, fetchTeam }) {
+  const [availableClients, setAvailableClients] = useState([]);
   const [showAddClient, setShowAddClient] = useState(false);
+  const [showAdminControl, setShowAdminControl] = useState(false);
+  const [showAdminControlLogin, setShowAdminControlLogin] = useState(false);
   const [newClient, setNewClient] = useState({ 
     id: '', 
     name: '', 
@@ -281,6 +324,33 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
     contactPerson: '',
     phoneNumber: ''
   });
+
+  // Fetch available clients based on user type
+  useEffect(() => {
+    const fetchAvailableClients = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/clients`);
+        if (response.ok) {
+          const allClients = await response.json();
+          
+          // If user is a team member, filter by assigned clients
+          if (currentUser.type === 'team_member' && currentUser.assignedClients) {
+            const filteredClients = allClients.filter(client => 
+              currentUser.assignedClients.includes(client.facCode)
+            );
+            setAvailableClients(filteredClients);
+          } else {
+            // Admin sees all clients
+            setAvailableClients(allClients);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching clients:', error);
+      }
+    };
+
+    fetchAvailableClients();
+  }, [currentUser]);
 
   const handleAddClient = async () => {
     if (newClient.id && newClient.name) {
@@ -328,7 +398,9 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
         textAlign: 'center'
       }}>
         <h1 style={{ margin: '0', fontSize: '2.5em' }}>🏥 HAS Status Report</h1>
-        <h2 style={{ margin: '0', fontSize: '1.5em', opacity: 0.9 }}>Client Management Dashboard</h2>
+        <h2 style={{ margin: '0', fontSize: '1.5em', opacity: 0.9 }}>
+          {currentUser.type === 'team_member' ? 'Team Member Dashboard' : 'Client Management Dashboard'}
+        </h2>
         <div style={{ marginTop: '20px' }}>
           <p style={{ margin: '0 0 5px 0', fontSize: '16px' }}>Welcome, {currentUser.name}</p>
           <button 
@@ -354,29 +426,33 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
         gap: '20px',
         marginBottom: '30px'
       }}>
-        {Object.entries(CLIENTS).map(([clientId, client]) => (
-          <div key={clientId} style={{
+        {availableClients.map((client) => (
+          <div key={client.facCode} style={{
             background: 'white',
-            border: `3px solid ${client.color}`,
+            border: `3px solid ${client.color || '#2563eb'}`,
             borderRadius: '15px',
             padding: '25px',
             boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
             cursor: 'pointer'
           }}
           onClick={() => {
-            setCurrentClientId(clientId);
+            setCurrentClientId(client.facCode);
             fetchPhases();
             fetchTeam();
           }}>
             <div style={{ fontSize: '3em', textAlign: 'center', marginBottom: '15px' }}>
-              {client.logo}
+              🏥
             </div>
-            <h3 style={{ margin: '0 0 10px 0', color: client.color, fontSize: '1.3em', textAlign: 'center' }}>
+            <h3 style={{ margin: '0 0 10px 0', color: client.color || '#2563eb', fontSize: '1.3em', textAlign: 'center' }}>
               {client.name}
             </h3>
+            <div style={{ textAlign: 'center', marginBottom: '10px', fontSize: '12px', color: '#666' }}>
+              <div>FAC: {client.facCode}</div>
+              <div>{client.city}, {client.state}</div>
+            </div>
             <div style={{ textAlign: 'center' }}>
               <button style={{
-                background: client.color,
+                background: client.color || '#2563eb',
                 color: 'white',
                 border: 'none',
                 padding: '10px 20px',
@@ -399,20 +475,41 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
         border: '2px solid #e9ecef'
       }}>
         <h3 style={{ margin: '0 0 15px 0', color: '#495057' }}>🔧 Admin Actions</h3>
-        <button 
-          onClick={() => setShowAddClient(true)}
-          style={{
-            background: '#28a745',
-            color: 'white',
-            border: 'none',
-            padding: '12px 20px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
-        >
-          ➕ Add New Client
-        </button>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          {currentUser.type !== 'team_member' && (
+            <button 
+              onClick={() => setShowAddClient(true)}
+              style={{
+                background: '#28a745',
+                color: 'white',
+                border: 'none',
+                padding: '12px 20px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              ➕ Add New Client
+            </button>
+          )}
+          {currentUser.type !== 'team_member' && (
+            <button 
+              onClick={() => setShowAdminControlLogin(true)}
+              style={{
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                padding: '12px 20px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }}
+            >
+              ⚙️ Admin Control
+            </button>
+          )}
+        </div>
       </div>
 
       {showAddClient && (
@@ -489,11 +586,776 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
           </div>
         </div>
       )}
+
+      {/* Admin Control Login Modal */}
+      {showAdminControlLogin && (
+        <AdminControlLogin
+          onSuccess={() => {
+            setShowAdminControlLogin(false);
+            setShowAdminControl(true);
+          }}
+          onCancel={() => setShowAdminControlLogin(false)}
+        />
+      )}
+
+      {/* Admin Control Panel */}
+      {showAdminControl && (
+        <AdminControlPanel
+          onBack={() => setShowAdminControl(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Admin Control Components
+function AdminControlLogin({ onSuccess, onCancel }) {
+  const [adminPassword, setAdminPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setError('');
+
+    // Admin password verification
+    if (adminPassword === '12345') {
+      onSuccess();
+    } else {
+      setError('Invalid admin password');
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        background: 'white',
+        padding: '30px',
+        borderRadius: '15px',
+        maxWidth: '400px',
+        width: '90%'
+      }}>
+        <h3 style={{ margin: '0 0 20px 0', textAlign: 'center' }}>🔐 Admin Control Access</h3>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Admin Password:
+            </label>
+            <input
+              type="password"
+              value={adminPassword}
+              onChange={(e) => setAdminPassword(e.target.value)}
+              placeholder="Enter admin password"
+              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '2px solid #e5e7eb' }}
+              required
+            />
+          </div>
+          {error && (
+            <div style={{ color: 'red', marginBottom: '20px', textAlign: 'center' }}>{error}</div>
+          )}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="submit"
+              style={{
+                flex: 1,
+                background: '#667eea',
+                color: 'white',
+                border: 'none',
+                padding: '12px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              Access Admin Control
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{
+                flex: 1,
+                background: '#6c757d',
+                color: 'white',
+                border: 'none',
+                padding: '12px',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AdminControlPanel({ onBack }) {
+  const [activeTab, setActiveTab] = useState('clients');
+  const [clients, setClients] = useState([]);
+  const [internalTeam, setInternalTeam] = useState([]);
+  const [showAddClient, setShowAddClient] = useState(false);
+  const [showAddTeamMember, setShowAddTeamMember] = useState(false);
+  const [editingClient, setEditingClient] = useState(null);
+  const [newClient, setNewClient] = useState({
+    clientCode: '',
+    name: '',
+    mainContact: '',
+    phoneNumber: '',
+    city: '',
+    state: '',
+    facCode: '',
+    filePath: ''
+  });
+  const [newTeamMember, setNewTeamMember] = useState({
+    name: '',
+    email: '',
+    teamName: 'PHG',
+    assignedClients: []
+  });
+
+  // Fetch clients and team members on component mount
+  useEffect(() => {
+    fetchClients();
+    fetchInternalTeam();
+  }, []);
+
+  const fetchClients = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/clients`);
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data);
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
+
+  const fetchInternalTeam = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/internal-team`);
+      if (response.ok) {
+        const data = await response.json();
+        setInternalTeam(data);
+      }
+    } catch (error) {
+      console.error('Error fetching internal team:', error);
+    }
+  };
+
+  const handleAddClient = async () => {
+    if (!newClient.facCode || !newClient.name) {
+      alert('Please fill in Client Code and Client Name');
+      return;
+    }
+
+    // Validate 3-character alphanumeric code
+    if (!/^[A-Z0-9]{3}$/.test(newClient.facCode)) {
+      alert('Client Code must be exactly 3 characters (letters and numbers only)');
+      return;
+    }
+
+    try {
+      const method = editingClient ? 'PUT' : 'POST';
+      const url = editingClient 
+        ? `${API_BASE_URL}/api/clients/${editingClient._id}`
+        : `${API_BASE_URL}/api/clients`;
+
+      const response = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newClient)
+      });
+
+      if (response.ok) {
+        alert(editingClient ? 'Client updated successfully!' : 'Client added successfully!');
+        setNewClient({
+          name: '',
+          mainContact: '',
+          phoneNumber: '',
+          city: '',
+          state: '',
+          facCode: '',
+          filePath: ''
+        });
+        setEditingClient(null);
+        setShowAddClient(false);
+        fetchClients();
+      } else {
+        alert(editingClient ? 'Error updating client' : 'Error adding client');
+      }
+    } catch (error) {
+      alert(editingClient ? 'Error updating client' : 'Error adding client');
+    }
+  };
+
+  const handleEditClient = (client) => {
+    setEditingClient(client);
+    setNewClient({
+      name: client.name,
+      mainContact: client.mainContact || '',
+      phoneNumber: client.phoneNumber || '',
+      city: client.city || '',
+      state: client.state || '',
+      facCode: client.facCode,
+      filePath: client.filePath || ''
+    });
+    setShowAddClient(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingClient(null);
+    setNewClient({
+      name: '',
+      mainContact: '',
+      phoneNumber: '',
+      city: '',
+      state: '',
+      facCode: '',
+      filePath: ''
+    });
+    setShowAddClient(false);
+  };
+
+  const handleAddTeamMember = async () => {
+    if (!newTeamMember.name || !newTeamMember.email) {
+      alert('Please fill in Name and Email');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/internal-team`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTeamMember)
+      });
+
+      if (response.ok) {
+        alert('Team member added successfully!');
+        setNewTeamMember({
+          name: '',
+          email: '',
+          teamName: 'PHG',
+          assignedClients: []
+        });
+        setShowAddTeamMember(false);
+        fetchInternalTeam();
+      } else {
+        alert('Error adding team member');
+      }
+    } catch (error) {
+      alert('Error adding team member');
+    }
+  };
+
+  const deleteClient = async (clientId) => {
+    if (window.confirm('Are you sure you want to delete this client?')) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          alert('Client deleted successfully!');
+          fetchClients();
+        } else {
+          alert('Error deleting client');
+        }
+      } catch (error) {
+        alert('Error deleting client');
+      }
+    }
+  };
+
+  const deleteTeamMember = async (memberId) => {
+    if (window.confirm('Are you sure you want to delete this team member?')) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/internal-team/${memberId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          alert('Team member deleted successfully!');
+          fetchInternalTeam();
+        } else {
+          alert('Error deleting team member');
+        }
+      } catch (error) {
+        alert('Error deleting team member');
+      }
+    }
+  };
+
+  return (
+    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
+      <div style={{ 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+        color: 'white', 
+        padding: '30px', 
+        borderRadius: '15px', 
+        marginBottom: '30px',
+        textAlign: 'center'
+      }}>
+        <h1 style={{ margin: '0', fontSize: '2.5em' }}>⚙️ Admin Control Panel</h1>
+        <h2 style={{ margin: '0', fontSize: '1.5em', opacity: 0.9 }}>System Administration</h2>
+        <div style={{ marginTop: '20px' }}>
+          <button 
+            onClick={onBack}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              color: 'white',
+              border: '1px solid rgba(255,255,255,0.3)',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '10px', 
+        marginBottom: '30px',
+        borderBottom: '2px solid #e5e7eb'
+      }}>
+        <button
+          onClick={() => setActiveTab('clients')}
+          style={{
+            background: activeTab === 'clients' ? '#667eea' : '#f3f4f6',
+            color: activeTab === 'clients' ? 'white' : '#374151',
+            border: 'none',
+            padding: '12px 24px',
+            borderRadius: '8px 8px 0 0',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          🏢 Client Profiles
+        </button>
+        <button
+          onClick={() => setActiveTab('team')}
+          style={{
+            background: activeTab === 'team' ? '#667eea' : '#f3f4f6',
+            color: activeTab === 'team' ? 'white' : '#374151',
+            border: 'none',
+            padding: '12px 24px',
+            borderRadius: '8px 8px 0 0',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          👥 Internal Team
+        </button>
+      </div>
+
+      {/* Client Profiles Tab */}
+      {activeTab === 'clients' && (
+        <div>
+          <div style={{ 
+            background: '#f8f9fa', 
+            padding: '20px', 
+            borderRadius: '10px',
+            border: '2px solid #e9ecef',
+            marginBottom: '20px'
+          }}>
+            <h3 style={{ margin: '0 0 15px 0', color: '#495057' }}>🏢 Client Profile Management</h3>
+            <button 
+              onClick={() => setShowAddClient(true)}
+              style={{
+                background: '#28a745',
+                color: 'white',
+                border: 'none',
+                padding: '12px 20px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              ➕ Add New Client Profile
+            </button>
+          </div>
+
+          {/* Client List */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
+            gap: '20px' 
+          }}>
+            {clients.map(client => (
+              <div key={client._id} style={{
+                background: 'white',
+                border: '2px solid #e5e7eb',
+                borderRadius: '10px',
+                padding: '20px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h4 style={{ margin: 0, color: '#1f2937' }}>{client.name}</h4>
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    <button
+                      onClick={() => handleEditClient(client)}
+                      style={{
+                        background: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => deleteClient(client._id)}
+                      style={{
+                        background: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px' }}>
+                  <div><strong>Client Code:</strong> {client.clientCode}</div>
+                  <div><strong>FAC Code:</strong> {client.facCode}</div>
+                  <div><strong>Contact:</strong> {client.mainContact}</div>
+                  <div><strong>Phone:</strong> {client.phoneNumber}</div>
+                  <div><strong>Location:</strong> {client.city}, {client.state}</div>
+                  <div><strong>File Path:</strong> {client.filePath}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Internal Team Tab */}
+      {activeTab === 'team' && (
+        <div>
+          <div style={{ 
+            background: '#f8f9fa', 
+            padding: '20px', 
+            borderRadius: '10px',
+            border: '2px solid #e9ecef',
+            marginBottom: '20px'
+          }}>
+            <h3 style={{ margin: '0 0 15px 0', color: '#495057' }}>👥 Internal Team Management</h3>
+            <button 
+              onClick={() => setShowAddTeamMember(true)}
+              style={{
+                background: '#28a745',
+                color: 'white',
+                border: 'none',
+                padding: '12px 20px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              ➕ Add New Team Member
+            </button>
+          </div>
+
+          {/* Team Member List */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
+            gap: '20px' 
+          }}>
+            {internalTeam.map(member => (
+              <div key={member._id} style={{
+                background: 'white',
+                border: '2px solid #e5e7eb',
+                borderRadius: '10px',
+                padding: '20px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h4 style={{ margin: 0, color: '#1f2937' }}>{member.name}</h4>
+                  <button
+                    onClick={() => deleteTeamMember(member._id)}
+                    style={{
+                      background: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
+                <div style={{ fontSize: '14px', marginBottom: '10px' }}>
+                  <div><strong>Email:</strong> {member.email}</div>
+                  <div><strong>Team:</strong> {member.teamName}</div>
+                  <div><strong>Assigned Clients:</strong> {member.assignedClients.join(', ') || 'None'}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add Client Modal */}
+      {showAddClient && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '30px',
+            borderRadius: '15px',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ margin: '0 0 20px 0' }}>{editingClient ? 'Edit Client Profile' : 'Add New Client Profile'}</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Client Code *:</label>
+                <input
+                  type="text"
+                  value={newClient.facCode}
+                  onChange={(e) => setNewClient({...newClient, facCode: e.target.value.toUpperCase()})}
+                  placeholder="e.g., ABC"
+                  maxLength="3"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Client Name *:</label>
+                <input
+                  type="text"
+                  value={newClient.name}
+                  onChange={(e) => setNewClient({...newClient, name: e.target.value})}
+                  placeholder="e.g., ABC Hospital"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Main Contact:</label>
+                <input
+                  type="text"
+                  value={newClient.mainContact}
+                  onChange={(e) => setNewClient({...newClient, mainContact: e.target.value})}
+                  placeholder="e.g., John Doe"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Phone Number:</label>
+                <input
+                  type="tel"
+                  value={newClient.phoneNumber}
+                  onChange={(e) => setNewClient({...newClient, phoneNumber: e.target.value})}
+                  placeholder="e.g., (555) 123-4567"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>City:</label>
+                <input
+                  type="text"
+                  value={newClient.city}
+                  onChange={(e) => setNewClient({...newClient, city: e.target.value})}
+                  placeholder="e.g., New York"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>State:</label>
+                <input
+                  type="text"
+                  value={newClient.state}
+                  onChange={(e) => setNewClient({...newClient, state: e.target.value})}
+                  placeholder="e.g., NY"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>File Path:</label>
+                <input
+                  type="text"
+                  value={newClient.filePath}
+                  onChange={(e) => setNewClient({...newClient, filePath: e.target.value})}
+                  placeholder="e.g., \\sharepoint\client-files\ABC"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={handleAddClient}
+                style={{
+                  background: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                {editingClient ? 'Save Changes' : 'Save Client'}
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                style={{
+                  background: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Team Member Modal */}
+      {showAddTeamMember && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '30px',
+            borderRadius: '15px',
+            maxWidth: '500px',
+            width: '90%'
+          }}>
+            <h3 style={{ margin: '0 0 20px 0' }}>Add New Team Member</h3>
+            <div style={{ display: 'grid', gap: '15px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Name *:</label>
+                <input
+                  type="text"
+                  value={newTeamMember.name}
+                  onChange={(e) => setNewTeamMember({...newTeamMember, name: e.target.value})}
+                  placeholder="e.g., John Doe"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Email *:</label>
+                <input
+                  type="email"
+                  value={newTeamMember.email}
+                  onChange={(e) => setNewTeamMember({...newTeamMember, email: e.target.value})}
+                  placeholder="e.g., john.doe@phg.com"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Team Name:</label>
+                <input
+                  type="text"
+                  value={newTeamMember.teamName}
+                  onChange={(e) => setNewTeamMember({...newTeamMember, teamName: e.target.value})}
+                  placeholder="PHG"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Assigned Clients:</label>
+                <Select
+                  isMulti
+                  options={clients.map(client => ({ value: client.facCode, label: `${client.name} (${client.facCode})` }))}
+                  value={newTeamMember.assignedClients.map(code => ({ value: code, label: code }))}
+                  onChange={selected => setNewTeamMember({...newTeamMember, assignedClients: selected.map(opt => opt.value)})}
+                  placeholder="Select clients..."
+                  styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={handleAddTeamMember}
+                style={{
+                  background: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                Add Team Member
+              </button>
+              <button
+                onClick={() => setShowAddTeamMember(false)}
+                style={{
+                  background: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function App() {
+  // Initialize browser history management
+  useBrowserHistory();
+  
   const [team, setTeam] = useState([]);
   const [phases, setPhases] = useState([]);
   const [email, setEmail] = useState("");
@@ -509,7 +1371,7 @@ function App() {
     commentArea: "",
     assigned_to: "team"
   });
-  const [clientName, setClientName] = useState("");
+
   const [filterMember, setFilterMember] = useState([]);
   const [filterStatus, setFilterStatus] = useState([]);
   const [sortByStatus, setSortByStatus] = useState(false);
@@ -834,71 +1696,7 @@ function App() {
     }
   };
 
-  const applyPHGStandardTemplateToClient = async (clientId) => {
-    if (window.confirm(`Apply PHG Standard Template to ${CLIENTS[clientId]?.name || clientId}?`)) {
-      try {
-        for (const task of PHG_STANDARD_TEMPLATE) {
-          const taskWithClient = { 
-            ...task, 
-            clientId: clientId,
-            assigned_to: 'PHGHAS', // Always assign to PHGHAS team member
-            stage: 'Outstanding' // Ensure status is Outstanding
-          };
-          await fetch(`${API_BASE_URL}/api/phases`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(taskWithClient)
-          });
-        }
-        alert('PHG Standard Template applied successfully!');
-      } catch (error) {
-        alert('Error applying template');
-      }
-    }
-  };
 
-
-
-  const cloneTemplateFromClient = async (sourceClientId) => {
-    if (!sourceClientId) {
-      alert('Please select a source client');
-      return;
-    }
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/phases?clientId=${sourceClientId}`);
-      const tasks = await response.json();
-      
-      if (tasks.length === 0) {
-        alert('Selected client has no tasks to clone');
-        return;
-      }
-      
-      if (window.confirm(`Clone ${tasks.length} tasks from ${CLIENTS[sourceClientId]?.name || sourceClientId}?`)) {
-        for (const task of tasks) {
-          const newTask = {
-            goal: task.goal,
-            need: task.need,
-            comments: task.comments,
-            execute: task.execute,
-            stage: 'Outstanding',
-            commentArea: task.commentArea,
-            assigned_to: 'PHGHAS',
-            clientId: currentClientId
-          };
-          await fetch(`${API_BASE_URL}/api/phases`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newTask)
-          });
-        }
-        fetchPhases();
-        alert('Tasks cloned successfully!');
-      }
-    } catch (error) {
-      alert('Error cloning tasks');
-    }
-  };
 
   const clearAllTasksForClient = async () => {
     const password = prompt('Enter admin password to clear all tasks:');
