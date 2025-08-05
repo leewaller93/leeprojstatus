@@ -1776,7 +1776,7 @@ function App() {
               <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #e5e7eb", background: "#fff" }}>
                 <thead>
                   <tr style={{ background: "#f3f4f6" }}>
-                      {isMassUpdateMode && (
+                      {(isMassUpdateMode || isMassETCMode) && (
                         <th style={{ border: "1px solid #e5e7eb", padding: 8, width: "40px" }}>Select</th>
                       )}
                       <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Goal</th>
@@ -1792,7 +1792,7 @@ function App() {
                 <tbody>
                   {items.map(item => (
                     <tr key={item._id}>
-                      {isMassUpdateMode && (
+                      {(isMassUpdateMode || isMassETCMode) && (
                         <td style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "center" }}>
                           <input
                             type="checkbox"
