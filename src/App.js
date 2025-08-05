@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Select from 'react-select';
-import { CLIENTS, getClientUrl, getAdminUrl } from './clientConfig';
+import { CLIENTS } from './clientConfig';
 
 // PHG Standard Template
 const PHG_STANDARD_TEMPLATE = [
@@ -522,11 +522,15 @@ function App() {
   const [currentClientId, setCurrentClientId] = useState(getClientId());
   
   // Mass update state
-  const [isMassUpdateMode, setIsMassUpdateMode] = useState(false);
-  const [massUpdateField, setMassUpdateField] = useState('');
-  const [massUpdateValue, setMassUpdateValue] = useState('');
   const [selectedTasks, setSelectedTasks] = useState([]);
-  const [availableClients, setAvailableClients] = useState([]);
+  
+  // Unified mass update state
+  const [isUnifiedMassUpdateMode, setIsUnifiedMassUpdateMode] = useState(false);
+  const [unifiedMassUpdateData, setUnifiedMassUpdateData] = useState({
+    stage: '',
+    assigned_to: '',
+    need: ''
+  });
   
   // Bulk rule update state (removed - no longer used)
   
@@ -534,10 +538,6 @@ function App() {
   const [editingMember, setEditingMember] = useState(null);
   const [editMemberName, setEditMemberName] = useState('');
   const [editMemberEmail, setEditMemberEmail] = useState('');
-  
-  // Mass ETC date update state
-  const [isMassETCMode, setIsMassETCMode] = useState(false);
-  const [massETCDate, setMassETCDate] = useState('');
   
   // Due date filter state
   const [filterDueDate, setFilterDueDate] = useState('');
@@ -711,43 +711,7 @@ function App() {
     setEditMemberEmail('');
   };
 
-  const massUpdateETCDate = async () => {
-    if (!massETCDate) {
-      alert("Please select a date");
-      return;
-    }
-    
-    if (selectedTasks.length === 0) {
-      alert("Please select at least one task");
-      return;
-    }
-    
-    if (!window.confirm(`Update ETC date to ${massETCDate} for ${selectedTasks.length} selected tasks?`)) {
-      return;
-    }
-    
-    try {
-      let successCount = 0;
-      for (const taskId of selectedTasks) {
-        const response = await fetch(`${API_BASE_URL}/api/phases/${taskId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ need: massETCDate })
-        });
-        if (response.ok) {
-          successCount++;
-        }
-      }
-      
-      fetchPhases();
-      setSelectedTasks([]);
-      setIsMassETCMode(false);
-      setMassETCDate('');
-      alert(`Successfully updated ${successCount} tasks`);
-    } catch (error) {
-      alert("Error updating ETC dates");
-    }
-  };
+
 
   const addNewTask = async (taskData = null) => {
     const task = taskData || newTask;
@@ -893,15 +857,7 @@ function App() {
     }
   };
 
-  const fetchAvailableClients = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/clients`);
-      const clients = await response.json();
-      setAvailableClients(clients);
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-    }
-  };
+
 
   const cloneTemplateFromClient = async (sourceClientId) => {
     if (!sourceClientId) {
@@ -990,30 +946,44 @@ function App() {
   };
 
   // Enhanced mass update with bulk rules
-  const massUpdateTasks = async () => {
-    if (!massUpdateField || !massUpdateValue || selectedTasks.length === 0) {
-      alert('Please select field, value, and at least one task');
+
+
+  // Unified mass update function
+  const unifiedMassUpdate = async () => {
+    if (selectedTasks.length === 0) {
+      alert('Please select at least one task');
+      return;
+    }
+    
+    // Check if at least one field has a value
+    const hasChanges = unifiedMassUpdateData.stage || unifiedMassUpdateData.assigned_to || unifiedMassUpdateData.need;
+    if (!hasChanges) {
+      alert('Please select at least one field to update');
       return;
     }
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/phases/mass-update`, {
+      const updateData = {
+        clientId: currentClientId,
+        taskIds: selectedTasks
+      };
+      
+      // Only include fields that have values
+      if (unifiedMassUpdateData.stage) updateData.stage = unifiedMassUpdateData.stage;
+      if (unifiedMassUpdateData.assigned_to) updateData.assigned_to = unifiedMassUpdateData.assigned_to;
+      if (unifiedMassUpdateData.need) updateData.need = unifiedMassUpdateData.need;
+      
+      const response = await fetch(`${API_BASE_URL}/api/phases/unified-mass-update`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: currentClientId,
-          field: massUpdateField,
-          value: massUpdateValue,
-          taskIds: selectedTasks
-        })
+        body: JSON.stringify(updateData)
       });
       
       if (response.ok) {
         fetchPhases();
-        setIsMassUpdateMode(false);
+        setIsUnifiedMassUpdateMode(false);
         setSelectedTasks([]);
-        setMassUpdateField('');
-        setMassUpdateValue('');
+        setUnifiedMassUpdateData({ stage: '', assigned_to: '', need: '' });
         alert('Tasks updated successfully!');
       } else {
         alert('Error updating tasks');
@@ -1024,12 +994,6 @@ function App() {
   };
 
 
-
-  const startMassUpdate = (field) => {
-    setMassUpdateField(field);
-    setIsMassUpdateMode(true);
-    setSelectedTasks([]);
-  };
 
   const toggleTaskSelection = (taskId) => {
     setSelectedTasks(prev => 
@@ -1585,41 +1549,64 @@ function App() {
           <h3 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>Mass Update</h3>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
             <button
-              onClick={() => startMassUpdate('stage')}
-              style={{ background: "#f59e0b", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
+              onClick={() => setIsUnifiedMassUpdateMode(!isUnifiedMassUpdateMode)}
+              style={{ background: "#3b82f6", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
             >
-              📊 Mass Update Status
-            </button>
-            <button
-              onClick={() => startMassUpdate('assigned_to')}
-              style={{ background: "#8b5cf6", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
-            >
-              👥 Mass Update Assigned
-            </button>
-            <button
-              onClick={() => setIsMassETCMode(!isMassETCMode)}
-              style={{ background: "#10b981", color: "white", padding: "10px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: "bold" }}
-            >
-              📅 Mass Update ETC Date
+              🔄 Mass Updates
             </button>
           </div>
           
-          {/* Mass ETC Date Update Interface */}
-          {isMassETCMode && (
-            <div style={{ marginTop: 16, padding: 16, background: "#f0fdf4", borderRadius: 6, border: "1px solid #22c55e" }}>
-              <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: "bold", color: "#166534" }}>
-                📅 Mass Update ETC Date
+          {/* Unified Mass Update Interface */}
+          {isUnifiedMassUpdateMode && (
+            <div style={{ marginTop: 16, padding: 16, background: "#eff6ff", borderRadius: 6, border: "1px solid #3b82f6" }}>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: "bold", color: "#1e40af" }}>
+                🔄 Unified Mass Updates
               </h4>
-              <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-                <label style={{ fontWeight: "bold", minWidth: 80, color: "#166534" }}>
-                  New ETC Date:
-                </label>
-                <input
-                  type="date"
-                  value={massETCDate}
-                  onChange={(e) => setMassETCDate(e.target.value)}
-                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #22c55e", minWidth: 150 }}
-                />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                <div>
+                  <label style={{ display: "block", fontWeight: "bold", marginBottom: 4, color: "#1e40af" }}>
+                    Status:
+                  </label>
+                  <select
+                    value={unifiedMassUpdateData.stage}
+                    onChange={(e) => setUnifiedMassUpdateData(prev => ({ ...prev, stage: e.target.value }))}
+                    style={{ width: "100%", padding: "6px 12px", borderRadius: 4, border: "1px solid #3b82f6" }}
+                  >
+                    <option value="">No change</option>
+                    <option value="Outstanding">Outstanding</option>
+                    <option value="Review/Discussion">Review/Discussion</option>
+                    <option value="In Process">In Process</option>
+                    <option value="Resolved">Resolved</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontWeight: "bold", marginBottom: 4, color: "#1e40af" }}>
+                    Assigned To:
+                  </label>
+                  <select
+                    value={unifiedMassUpdateData.assigned_to}
+                    onChange={(e) => setUnifiedMassUpdateData(prev => ({ ...prev, assigned_to: e.target.value }))}
+                    style={{ width: "100%", padding: "6px 12px", borderRadius: 4, border: "1px solid #3b82f6" }}
+                  >
+                    <option value="">No change</option>
+                    <option value="PHG">PHG</option>
+                    <option value="team">team</option>
+                    {team.map((member) => (
+                      <option key={member.id} value={member.username}>{member.username}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontWeight: "bold", marginBottom: 4, color: "#1e40af" }}>
+                    ETC Date:
+                  </label>
+                  <input
+                    type="date"
+                    value={unifiedMassUpdateData.need}
+                    onChange={(e) => setUnifiedMassUpdateData(prev => ({ ...prev, need: e.target.value }))}
+                    style={{ width: "100%", padding: "6px 12px", borderRadius: 4, border: "1px solid #3b82f6" }}
+                  />
+                </div>
               </div>
               <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                 <button
@@ -1637,107 +1624,25 @@ function App() {
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
-                  onClick={massUpdateETCDate}
-                  disabled={!massETCDate || selectedTasks.length === 0}
+                  onClick={unifiedMassUpdate}
+                  disabled={selectedTasks.length === 0}
                   style={{ 
-                    background: massETCDate && selectedTasks.length > 0 ? "#059669" : "#9ca3af", 
+                    background: selectedTasks.length > 0 ? "#059669" : "#9ca3af", 
                     color: "white", 
                     padding: "8px 16px", 
                     borderRadius: 4, 
                     border: "none", 
-                    cursor: massETCDate && selectedTasks.length > 0 ? "pointer" : "not-allowed",
+                    cursor: selectedTasks.length > 0 ? "pointer" : "not-allowed",
                     fontWeight: "bold"
                   }}
                 >
-                  Update Selected Tasks ({selectedTasks.length})
+                  Apply Updates ({selectedTasks.length} tasks)
                 </button>
                 <button
                   onClick={() => {
-                    setIsMassETCMode(false);
+                    setIsUnifiedMassUpdateMode(false);
                     setSelectedTasks([]);
-                    setMassETCDate('');
-                  }}
-                  style={{ background: "#ef4444", color: "white", padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-          
-          {/* Mass Update UI */}
-          {isMassUpdateMode && (
-            <div style={{ marginTop: 16, padding: 16, background: "#f8f9fa", borderRadius: 6, border: "1px solid #e9ecef" }}>
-              <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: "bold" }}>
-                Mass Update: {massUpdateField === 'stage' ? 'Status' : 'Assigned To'}
-              </h4>
-              <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
-                <label style={{ fontWeight: "bold", minWidth: 80 }}>
-                  {massUpdateField === 'stage' ? 'New Status:' : 'New Assignee:'}
-                </label>
-                {massUpdateField === 'stage' ? (
-                  <select
-                    value={massUpdateValue}
-                    onChange={(e) => setMassUpdateValue(e.target.value)}
-                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #ccc", minWidth: 150 }}
-                  >
-                    <option value="">Select status...</option>
-                    <option value="Outstanding">Outstanding</option>
-                    <option value="Review/Discussion">Review/Discussion</option>
-                    <option value="In Process">In Process</option>
-                    <option value="Resolved">Resolved</option>
-                  </select>
-                ) : (
-                  <select
-                    value={massUpdateValue}
-                    onChange={(e) => setMassUpdateValue(e.target.value)}
-                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid #ccc", minWidth: 150 }}
-                  >
-                    <option value="">Select assignee...</option>
-                    <option value="PHG">PHG</option>
-                    <option value="team">team</option>
-                    {team.map((member) => (
-                      <option key={member.id} value={member.username}>{member.username}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                <button
-                  onClick={selectAllTasks}
-                  style={{ background: "#6b7280", color: "white", padding: "6px 12px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12 }}
-                >
-                  Select All
-                </button>
-                <button
-                  onClick={clearTaskSelection}
-                  style={{ background: "#6b7280", color: "white", padding: "6px 12px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12 }}
-                >
-                  Clear Selection
-                </button>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={massUpdateTasks}
-                  disabled={!massUpdateValue || selectedTasks.length === 0}
-                  style={{ 
-                    background: massUpdateValue && selectedTasks.length > 0 ? "#22c55e" : "#9ca3af", 
-                    color: "white", 
-                    padding: "8px 16px", 
-                    borderRadius: 4, 
-                    border: "none", 
-                    cursor: massUpdateValue && selectedTasks.length > 0 ? "pointer" : "not-allowed",
-                    fontWeight: "bold"
-                  }}
-                >
-                  Update Selected Tasks
-                </button>
-                <button
-                  onClick={() => {
-                    setIsMassUpdateMode(false);
-                    setSelectedTasks([]);
-                    setMassUpdateField('');
-                    setMassUpdateValue('');
+                    setUnifiedMassUpdateData({ stage: '', assigned_to: '', need: '' });
                   }}
                   style={{ background: "#ef4444", color: "white", padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
                 >
@@ -1776,7 +1681,7 @@ function App() {
               <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #e5e7eb", background: "#fff" }}>
                 <thead>
                   <tr style={{ background: "#f3f4f6" }}>
-                      {(isMassUpdateMode || isMassETCMode) && (
+                      {(isUnifiedMassUpdateMode) && (
                         <th style={{ border: "1px solid #e5e7eb", padding: 8, width: "40px" }}>Select</th>
                       )}
                       <th style={{ border: "1px solid #e5e7eb", padding: 8 }}>Goal</th>
@@ -1792,7 +1697,7 @@ function App() {
                 <tbody>
                   {items.map(item => (
                     <tr key={item._id}>
-                      {(isMassUpdateMode || isMassETCMode) && (
+                      {(isUnifiedMassUpdateMode) && (
                         <td style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "center" }}>
                           <input
                             type="checkbox"
