@@ -478,22 +478,6 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           {currentUser.type !== 'team_member' && (
             <button 
-              onClick={() => setShowAddClient(true)}
-              style={{
-                background: '#28a745',
-                color: 'white',
-                border: 'none',
-                padding: '12px 20px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              ➕ Add New Client
-            </button>
-          )}
-          {currentUser.type !== 'team_member' && (
-            <button 
               onClick={() => setShowAdminControlLogin(true)}
               style={{
                 background: '#dc2626',
@@ -1155,7 +1139,7 @@ function AdminControlPanel({ onBack }) {
                   onChange={(e) => setNewClient({...newClient, facCode: e.target.value.toUpperCase()})}
                   placeholder="e.g., ABC"
                   maxLength="3"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  style={{ width: '60px', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', textAlign: 'center' }}
                 />
               </div>
               <div>
