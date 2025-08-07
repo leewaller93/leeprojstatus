@@ -1103,7 +1103,7 @@ function AdminControlPanel({ onBack }) {
                 <div style={{ fontSize: '14px', marginBottom: '10px' }}>
                   <div><strong>Email:</strong> {member.email}</div>
                   <div><strong>Team:</strong> {member.teamName}</div>
-                  <div><strong>Assigned Clients:</strong> {member.assignedClients.join(', ') || 'None'}</div>
+                  <div><strong>Assigned Clients:</strong> {member.assignedClients && member.assignedClients.length > 0 ? member.assignedClients.join(', ') : 'None'}</div>
                 </div>
               </div>
             ))}
@@ -1392,6 +1392,11 @@ function App() {
   
   // Due date filter state
   const [filterDueDate, setFilterDueDate] = useState('');
+  
+  // Enhanced team member functionality state
+  const [teamMemberMode, setTeamMemberMode] = useState('new'); // 'existing' or 'new'
+  const [selectedExistingMember, setSelectedExistingMember] = useState('');
+  const [internalTeamMembers, setInternalTeamMembers] = useState([]);
 
   const fetchPhases = useCallback(async () => {
     try {
@@ -1420,10 +1425,22 @@ function App() {
     }
   }, [currentClientId]);
 
+  const fetchInternalTeamMembers = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/internal-team`);
+      const data = await response.json();
+      setInternalTeamMembers(data);
+    } catch (error) {
+      console.error('Error fetching internal team members:', error);
+      setInternalTeamMembers([]);
+    }
+  }, []);
+
   useEffect(() => {
     fetchPhases();
     fetchTeam();
-  }, [fetchPhases, fetchTeam]);
+    fetchInternalTeamMembers();
+  }, [fetchPhases, fetchTeam, fetchInternalTeamMembers]);
 
   const addTeamMember = async () => {
     if (!username || !email) {
@@ -1431,7 +1448,8 @@ function App() {
       return;
     }
     
-    const clientOrg = CLIENTS[currentClientId]?.name || 'PHG';
+    // Get client name from database or fallback to hardcoded
+    const clientOrg = currentClient?.name || CLIENTS[currentClientId]?.name || 'PHG';
     const finalOrg = org === 'PHG' ? 'PHG' : clientOrg;
     
     const body = { username, email, org: finalOrg, clientId: currentClientId };
@@ -1452,6 +1470,50 @@ function App() {
       }
     } catch (error) {
       alert("Error adding team member");
+    }
+  };
+
+  const addExistingTeamMember = async () => {
+    if (!selectedExistingMember) {
+      alert("Please select an existing team member");
+      return;
+    }
+
+    const selectedMember = internalTeamMembers.find(m => m._id === selectedExistingMember);
+    if (!selectedMember) {
+      alert("Selected team member not found");
+      return;
+    }
+
+    // Check if member is already in the current client's team
+    const existingMember = team.find(m => m.username === selectedMember.name);
+    if (existingMember) {
+      alert("This team member is already in the current client's team");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: selectedMember.name,
+          email: selectedMember.email,
+          org: selectedMember.teamName,
+          clientId: currentClientId
+        })
+      });
+
+      if (response.ok) {
+        fetchTeam();
+        setSelectedExistingMember('');
+        alert("Existing team member added successfully");
+      } else {
+        const errorData = await response.json();
+        alert(`Error adding existing team member: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      alert("Error adding existing team member");
     }
   };
 
@@ -1566,7 +1628,8 @@ function App() {
 
   const addNewTask = async (taskData = null) => {
     const task = taskData || newTask;
-    if (!task.goal) {
+    console.log('Adding task:', task); // Debug log
+    if (!task.goal || task.goal.trim() === '') {
       alert("Please enter a goal");
       return;
     }
@@ -1930,40 +1993,112 @@ function App() {
 
         <div style={{ marginBottom: 32, background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
           <h3 style={{ fontWeight: "bold", marginBottom: 8 }}>Add Team Member</h3>
-          <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-            <input
-              type="text"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              onKeyPress={e => e.key === 'Enter' && addTeamMember()}
-              placeholder="Username"
-              style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
-            />
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              onKeyPress={e => e.key === 'Enter' && addTeamMember()}
-              placeholder="Email"
-              style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
-            />
-            <select
-              value={org}
-              onChange={e => setOrg(e.target.value)}
-              style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
-            >
-              <option value="PHG">PHG</option>
-              <option value={CLIENTS[currentClientId]?.name || 'Client'}>
-                {CLIENTS[currentClientId]?.name || 'Client'}
-              </option>
-            </select>
-            <button
-              onClick={addTeamMember}
-              style={{ background: "#3b82f6", color: "white", padding: "8px 20px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
-            >
-              Add
-            </button>
+          
+          {/* Team Member Selection Options */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+              <button
+                onClick={() => setTeamMemberMode('existing')}
+                style={{ 
+                  background: teamMemberMode === 'existing' ? "#3b82f6" : "#e5e7eb", 
+                  color: teamMemberMode === 'existing' ? "white" : "#374151", 
+                  padding: "8px 16px", 
+                  borderRadius: 4, 
+                  border: "none", 
+                  cursor: "pointer", 
+                  fontWeight: "bold" 
+                }}
+              >
+                📋 Select Existing Team Member
+              </button>
+              <button
+                onClick={() => setTeamMemberMode('new')}
+                style={{ 
+                  background: teamMemberMode === 'new' ? "#3b82f6" : "#e5e7eb", 
+                  color: teamMemberMode === 'new' ? "white" : "#374151", 
+                  padding: "8px 16px", 
+                  borderRadius: 4, 
+                  border: "none", 
+                  cursor: "pointer", 
+                  fontWeight: "bold" 
+                }}
+              >
+                ➕ Create New Team Member
+              </button>
+            </div>
           </div>
+
+          {/* Existing Team Member Selection */}
+          {teamMemberMode === 'existing' && (
+            <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+              <select
+                value={selectedExistingMember || ''}
+                onChange={e => setSelectedExistingMember(e.target.value)}
+                style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
+              >
+                <option value="">Select an existing team member...</option>
+                {internalTeamMembers.map(member => (
+                  <option key={member._id} value={member._id}>
+                    {member.name} ({member.teamName}) - {member.email}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={addExistingTeamMember}
+                disabled={!selectedExistingMember}
+                style={{ 
+                  background: selectedExistingMember ? "#22c55e" : "#ccc", 
+                  color: "white", 
+                  padding: "8px 20px", 
+                  borderRadius: 4, 
+                  border: "none", 
+                  cursor: selectedExistingMember ? "pointer" : "not-allowed", 
+                  fontWeight: "bold" 
+                }}
+              >
+                Add Selected Member
+              </button>
+            </div>
+          )}
+
+          {/* New Team Member Creation */}
+          {teamMemberMode === 'new' && (
+            <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+              <input
+                type="text"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && addTeamMember()}
+                placeholder="Username"
+                style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
+              />
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && addTeamMember()}
+                placeholder="Email"
+                style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
+              />
+              <select
+                value={org}
+                onChange={e => setOrg(e.target.value)}
+                style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
+              >
+                <option value="PHG">PHG</option>
+                <option value={CLIENTS[currentClientId]?.name || 'Client'}>
+                  {CLIENTS[currentClientId]?.name || 'Client'}
+                </option>
+                <option value="Other">Other</option>
+              </select>
+              <button
+                onClick={addTeamMember}
+                style={{ background: "#3b82f6", color: "white", padding: "8px 20px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
+              >
+                Add New Member
+              </button>
+            </div>
+          )}
           
           {/* Team Members Display */}
           {team.length > 0 && (

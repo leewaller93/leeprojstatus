@@ -1,58 +1,51 @@
-# Deployment Guide
+# DEPLOYMENT GUIDE
+
+## THE ONLY DEPLOYMENT SCRIPT YOU NEED
+
+**Use `dr1.ps1` for all deployments. All other deployment files have been deleted.**
 
 ## Quick Deploy
 
-```bash
-# Deploy everything (frontend + backend)
-.\deploy.ps1
+```powershell
+# Deploy with custom commit message
+.\dr1.ps1 "Your commit message here"
+
+# Deploy with default commit message
+.\dr1.ps1
 ```
 
-## Manual Deployment
+## What dr1.ps1 Does
 
-### Frontend Only
-```bash
-npm run build
-npx gh-pages -d build
-```
+1. **Backend Deployment (Render)**
+   - Commits and pushes backend changes
+   - Updates submodule reference
+   - Triggers Render deployment
 
-### Backend Only
-```bash
-cd has-status-backend
-git add .
-git commit -m "Backend update"
-git push
-cd ..
-git add has-status-backend
-git commit -m "Update submodule"
-git push
-```
+2. **Frontend Deployment (GitHub Pages)**
+   - Builds React app (`npm run build`)
+   - Deploys to GitHub Pages (`npx gh-pages -d build`)
+
+3. **Verification**
+   - Waits for backend to be ready
+   - Performs health checks
+   - Verifies frontend accessibility
 
 ## URLs
+
 - **Frontend**: https://leewaller93.github.io/leeprojstatus/
 - **Backend**: https://has-status-backend.onrender.com/
+- **Health Check**: https://has-status-backend.onrender.com/health
 
 ## Troubleshooting
 
-### If Render build fails:
-1. Check `render.yaml` has correct `rootDir: has-status-backend`
-2. Verify `.renderignore` excludes frontend files
-3. Ensure backend `package.json` exists and is valid
+If deployment fails:
+1. Check git status: `git status`
+2. Ensure you're in the main project directory
+3. Verify backend submodule is properly configured
+4. Check that all dependencies are installed: `npm install`
 
-### If frontend deployment fails:
-1. Check `npm run build` works locally
-2. Verify GitHub Pages settings
-3. Check for syntax errors in `src/App.js`
+## Notes
 
-### If backend is not responding:
-1. Check Render dashboard for deployment status
-2. Verify MongoDB connection
-3. Check backend logs in Render dashboard
-
-## Health Checks
-```bash
-# Test backend
-curl https://has-status-backend.onrender.com/api/phases?clientId=demo
-
-# Test frontend
-curl https://leewaller93.github.io/leeprojstatus/
-``` 
+- Backend deployment may take 1-2 minutes to fully deploy
+- Frontend deployment is usually instant
+- Health checks may fail initially while backend is still deploying 
