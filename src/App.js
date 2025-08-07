@@ -693,7 +693,6 @@ function AdminControlPanel({ onBack }) {
   const [showAddTeamMember, setShowAddTeamMember] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [newClient, setNewClient] = useState({
-    clientCode: '',
     name: '',
     mainContact: '',
     phoneNumber: '',
@@ -1030,7 +1029,7 @@ function AdminControlPanel({ onBack }) {
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px' }}>
-                  <div><strong>Client Code:</strong> {client.clientCode}</div>
+                  <div><strong>Client Code:</strong> {client.facCode}</div>
                   <div><strong>FAC Code:</strong> {client.facCode}</div>
                   <div><strong>Contact:</strong> {client.mainContact}</div>
                   <div><strong>Phone:</strong> {client.phoneNumber}</div>
