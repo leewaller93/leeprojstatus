@@ -754,7 +754,7 @@ function AdminControlPanel({ onBack }) {
     try {
       const method = editingClient ? 'PUT' : 'POST';
       const url = editingClient 
-        ? `${API_BASE_URL}/api/clients/${editingClient._id}`
+        ? `${API_BASE_URL}/api/clients/${editingClient.facCode || editingClient.clientId || editingClient._id}`
         : `${API_BASE_URL}/api/clients`;
 
       const response = await fetch(url, {
@@ -778,10 +778,12 @@ function AdminControlPanel({ onBack }) {
         setShowAddClient(false);
         fetchClients();
       } else {
-        alert(editingClient ? 'Error updating client' : 'Error adding client');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+        alert(editingClient ? `Error updating client: ${errorMessage}` : `Error adding client: ${errorMessage}`);
       }
     } catch (error) {
-      alert(editingClient ? 'Error updating client' : 'Error adding client');
+      alert(editingClient ? `Error updating client: ${error.message}` : `Error adding client: ${error.message}`);
     }
   };
 
@@ -844,10 +846,12 @@ function AdminControlPanel({ onBack }) {
     }
   };
 
-  const deleteClient = async (clientId) => {
+  const deleteClient = async (client) => {
     if (window.confirm('Are you sure you want to delete this client?')) {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
+        // Use facCode if available, otherwise use clientId, fallback to _id
+        const clientIdentifier = client.facCode || client.clientId || client._id;
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientIdentifier}`, {
           method: 'DELETE'
         });
 
@@ -855,10 +859,12 @@ function AdminControlPanel({ onBack }) {
           alert('Client deleted successfully!');
           fetchClients();
         } else {
-          alert('Error deleting client');
+          const errorData = await response.json().catch(() => ({}));
+          const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+          alert(`Error deleting client: ${errorMessage}`);
         }
       } catch (error) {
-        alert('Error deleting client');
+        alert(`Error deleting client: ${error.message}`);
       }
     }
   };
@@ -1008,7 +1014,7 @@ function AdminControlPanel({ onBack }) {
                       ✏️ Edit
                     </button>
                     <button
-                      onClick={() => deleteClient(client._id)}
+                      onClick={() => deleteClient(client)}
                       style={{
                         background: '#ef4444',
                         color: 'white',
