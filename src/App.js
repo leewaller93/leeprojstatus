@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import Select from 'react-select';
 import { CLIENTS } from './clientConfig';
 
@@ -25,6 +26,162 @@ const useBrowserHistory = () => {
     };
   }, []);
 };
+
+// Enhanced routing management
+const useRouting = () => {
+  useEffect(() => {
+    // Handle page refresh by ensuring we stay in the app
+    const handleBeforeUnload = (event) => {
+      // Don't show any message, just ensure the app state is preserved
+    };
+
+    // Handle page load/refresh
+    const handleLoad = () => {
+      // Ensure we're on the correct path for the app
+      if (window.location.pathname !== '/leeprojstatus/' && window.location.pathname !== '/') {
+        window.history.replaceState(null, '', '/leeprojstatus/');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('load', handleLoad);
+    
+    // Initial load handling
+    handleLoad();
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('load', handleLoad);
+    };
+  }, []);
+};
+
+// ExpandingCell component for hover expand functionality
+function ExpandingCell({ editable, value, onChange }) {
+  const [showPopout, setShowPopout] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+  const [boxPos, setBoxPos] = useState(null);
+  const cellRef = useRef();
+  const inputRef = useRef();
+
+  useEffect(() => {
+    setEditValue(value);
+  }, [value]);
+
+  // Get cell position for pop-out
+  useEffect(() => {
+    if (showPopout && cellRef.current) {
+      const rect = cellRef.current.getBoundingClientRect();
+      setBoxPos({
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height
+      });
+    } else if (!showPopout) {
+      setBoxPos(null);
+    }
+  }, [showPopout]);
+
+  // Focus textarea when editing
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [editing]);
+
+  // Save on blur or Enter
+  const handleSave = () => {
+    if (editValue !== value) {
+      onChange && onChange(editValue);
+    }
+    setEditing(false);
+    setShowPopout(false);
+  };
+
+  // Pop-out content (normal)
+  const popoutContent = (
+    <div
+      style={{
+        background: '#fffbe6',
+        border: '2px solid #ffe066',
+        borderRadius: 14,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        zIndex: 999999,
+        padding: 22,
+        fontSize: 16,
+        minWidth: 340,
+        maxWidth: 600,
+        minHeight: 48,
+        maxHeight: 340,
+        overflowY: 'auto',
+        whiteSpace: 'pre-wrap',
+        position: 'fixed',
+        left: boxPos ? boxPos.left : '50%',
+        top: boxPos ? boxPos.top + (boxPos.height || 0) + 10 : '50%',
+        transform: boxPos ? 'none' : 'translate(-50%, -50%)',
+        outline: 'none',
+        cursor: editing ? 'text' : editable ? 'pointer' : 'default',
+        color: '#222',
+        transition: 'box-shadow 0.2s',
+      }}
+      onClick={e => e.stopPropagation()}
+      onMouseLeave={() => { if (!editing) setShowPopout(false); }}
+      onMouseEnter={() => setShowPopout(true)}
+    >
+      {editing ? (
+        <textarea
+          ref={inputRef}
+          value={editValue || ''}
+          onChange={e => setEditValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { inputRef.current.blur(); e.preventDefault(); } }}
+          style={{ width: '100%', minHeight: 48, maxHeight: 240, fontSize: 16, padding: 12, borderRadius: 8, border: '2px solid #ccc', background: '#fff', resize: 'vertical', boxSizing: 'border-box', textAlign: 'left', overflow: 'auto', outline: 'none' }}
+        />
+      ) : (
+        <div
+          style={{ width: '100%', minHeight: 48, maxHeight: 240, overflowY: 'auto', cursor: editable ? 'pointer' : 'default', color: editValue ? '#222' : '#aaa', fontSize: 16 }}
+          onClick={() => { if (editable) setEditing(true); }}
+        >
+          {editValue || <span>(No content)</span>}
+        </div>
+      )}
+    </div>
+  );
+
+  // Only show pop-out on hover or editing
+  const popout = (showPopout || editing) && (boxPos || editing)
+    ? ReactDOM.createPortal(popoutContent, document.body)
+    : null;
+
+  return (
+    <td
+      ref={cellRef}
+      style={{
+        minWidth: 120,
+        maxWidth: 180,
+        position: 'relative',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        cursor: editable ? 'pointer' : 'default',
+        background: showPopout || editing ? '#fffbe6' : undefined,
+        border: showPopout || editing ? '2px solid #ffe066' : undefined,
+        zIndex: showPopout || editing ? 2 : 1,
+        transition: 'background 0.18s, border 0.18s',
+      }}
+      onMouseEnter={() => setShowPopout(true)}
+      onMouseLeave={() => { if (!editing) setShowPopout(false); }}
+      onClick={() => { if (editable) setEditing(true); }}
+    >
+      <span style={{ display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle' }}>
+        {editValue || <span style={{ color: '#aaa' }}>(No content)</span>}
+      </span>
+      {popout}
+    </td>
+  );
+}
 
 // PHG Standard Template
 const PHG_STANDARD_TEMPLATE = [
@@ -1344,6 +1501,10 @@ function AdminControlPanel({ onBack }) {
 function App() {
   // Initialize browser history management
   useBrowserHistory();
+  useRouting();
+  
+  // Modal state management
+  const [showTeamModal, setShowTeamModal] = useState(false);
   
   const [team, setTeam] = useState([]);
   const [phases, setPhases] = useState([]);
@@ -1465,6 +1626,7 @@ function App() {
         setUsername("");
         setEmail("");
         setOrg("PHG");
+        setShowTeamModal(false);
       } else {
         alert("Error adding team member");
       }
@@ -1507,6 +1669,7 @@ function App() {
       if (response.ok) {
         fetchTeam();
         setSelectedExistingMember('');
+        setShowTeamModal(false);
         alert("Existing team member added successfully");
       } else {
         const errorData = await response.json();
@@ -1992,113 +2155,26 @@ function App() {
         <h1 style={{ fontSize: 32, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: '#1f2937' }}>HAS Status</h1>
 
         <div style={{ marginBottom: 32, background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-          <h3 style={{ fontWeight: "bold", marginBottom: 8 }}>Add Team Member</h3>
+          <h3 style={{ fontWeight: "bold", marginBottom: 8 }}>Team Management</h3>
           
-          {/* Team Member Selection Options */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-              <button
-                onClick={() => setTeamMemberMode('existing')}
-                style={{ 
-                  background: teamMemberMode === 'existing' ? "#3b82f6" : "#e5e7eb", 
-                  color: teamMemberMode === 'existing' ? "white" : "#374151", 
-                  padding: "8px 16px", 
-                  borderRadius: 4, 
-                  border: "none", 
-                  cursor: "pointer", 
-                  fontWeight: "bold" 
-                }}
-              >
-                📋 Select Existing Team Member
-              </button>
-              <button
-                onClick={() => setTeamMemberMode('new')}
-                style={{ 
-                  background: teamMemberMode === 'new' ? "#3b82f6" : "#e5e7eb", 
-                  color: teamMemberMode === 'new' ? "white" : "#374151", 
-                  padding: "8px 16px", 
-                  borderRadius: 4, 
-                  border: "none", 
-                  cursor: "pointer", 
-                  fontWeight: "bold" 
-                }}
-              >
-                ➕ Create New Team Member
-              </button>
-            </div>
-          </div>
-
-          {/* Existing Team Member Selection */}
-          {teamMemberMode === 'existing' && (
-            <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-              <select
-                value={selectedExistingMember || ''}
-                onChange={e => setSelectedExistingMember(e.target.value)}
-                style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
-              >
-                <option value="">Select an existing team member...</option>
-                {internalTeamMembers.map(member => (
-                  <option key={member._id} value={member._id}>
-                    {member.name} ({member.teamName}) - {member.email}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={addExistingTeamMember}
-                disabled={!selectedExistingMember}
-                style={{ 
-                  background: selectedExistingMember ? "#22c55e" : "#ccc", 
-                  color: "white", 
-                  padding: "8px 20px", 
-                  borderRadius: 4, 
-                  border: "none", 
-                  cursor: selectedExistingMember ? "pointer" : "not-allowed", 
-                  fontWeight: "bold" 
-                }}
-              >
-                Add Selected Member
-              </button>
-            </div>
-          )}
-
-          {/* New Team Member Creation */}
-          {teamMemberMode === 'new' && (
-            <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-              <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && addTeamMember()}
-                placeholder="Username"
-                style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
-              />
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && addTeamMember()}
-                placeholder="Email"
-                style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
-              />
-              <select
-                value={org}
-                onChange={e => setOrg(e.target.value)}
-                style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
-              >
-                <option value="PHG">PHG</option>
-                <option value={CLIENTS[currentClientId]?.name || 'Client'}>
-                  {CLIENTS[currentClientId]?.name || 'Client'}
-                </option>
-                <option value="Other">Other</option>
-              </select>
-              <button
-                onClick={addTeamMember}
-                style={{ background: "#3b82f6", color: "white", padding: "8px 20px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
-              >
-                Add New Member
-              </button>
-            </div>
-          )}
+          <button
+            onClick={() => {
+              setTeamMemberMode('new');
+              setShowTeamModal(true);
+            }}
+            style={{ 
+              background: "#3b82f6", 
+              color: "white", 
+              padding: "12px 20px", 
+              borderRadius: 6, 
+              border: "none", 
+              cursor: "pointer", 
+              fontWeight: "bold",
+              fontSize: "14px"
+            }}
+          >
+            ➕ Add Team Member
+          </button>
           
           {/* Team Members Display */}
           {team.length > 0 && (
@@ -2192,12 +2268,173 @@ function App() {
             </div>
           )}
           
+          {/* Team Member Modal Overlay */}
+          {showTeamModal && (
+            <div style={{ 
+              position: 'fixed', 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0, 
+              background: 'rgba(0, 0, 0, 0.5)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              zIndex: 1000 
+            }}
+            onClick={() => setShowTeamModal(false)}
+            >
+              <div 
+                style={{ 
+                  background: 'white', 
+                  padding: '24px', 
+                  borderRadius: '8px', 
+                  maxWidth: '500px', 
+                  width: '90%',
+                  maxHeight: '80vh',
+                  overflow: 'auto'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>
+                    {teamMemberMode === 'new' ? 'Create New Team Member' : 'Select Existing Team Member'}
+                  </h3>
+                  <button 
+                    onClick={() => setShowTeamModal(false)}
+                    style={{ 
+                      background: 'none', 
+                      border: 'none', 
+                      fontSize: '20px', 
+                      cursor: 'pointer',
+                      color: '#666'
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+                
+                {/* Team Member Selection Options */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                    <button
+                      onClick={() => setTeamMemberMode('existing')}
+                      style={{ 
+                        background: teamMemberMode === 'existing' ? "#3b82f6" : "#e5e7eb", 
+                        color: teamMemberMode === 'existing' ? "white" : "#374151", 
+                        padding: "8px 16px", 
+                        borderRadius: 4, 
+                        border: "none", 
+                        cursor: "pointer", 
+                        fontWeight: "bold" 
+                      }}
+                    >
+                      📋 Select Existing Team Member
+                    </button>
+                    <button
+                      onClick={() => setTeamMemberMode('new')}
+                      style={{ 
+                        background: teamMemberMode === 'new' ? "#3b82f6" : "#e5e7eb", 
+                        color: teamMemberMode === 'new' ? "white" : "#374151", 
+                        padding: "8px 16px", 
+                        borderRadius: 4, 
+                        border: "none", 
+                        cursor: "pointer", 
+                        fontWeight: "bold" 
+                      }}
+                    >
+                      ➕ Create New Team Member
+                    </button>
+                  </div>
+                </div>
+
+                {/* Existing Team Member Selection */}
+                {teamMemberMode === 'existing' && (
+                  <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+                    <select
+                      value={selectedExistingMember || ''}
+                      onChange={e => setSelectedExistingMember(e.target.value)}
+                      style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", flex: 1 }}
+                    >
+                      <option value="">Select an existing team member...</option>
+                      {internalTeamMembers.map(member => (
+                        <option key={member._id} value={member._id}>
+                          {member.name} ({member.teamName}) - {member.email}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => {
+                        addExistingTeamMember();
+                        setShowTeamModal(false);
+                      }}
+                      disabled={!selectedExistingMember}
+                      style={{ 
+                        background: selectedExistingMember ? "#22c55e" : "#ccc", 
+                        color: "white", 
+                        padding: "8px 20px", 
+                        borderRadius: 4, 
+                        border: "none", 
+                        cursor: selectedExistingMember ? "pointer" : "not-allowed", 
+                        fontWeight: "bold" 
+                      }}
+                    >
+                      Add Selected Member
+                    </button>
+                  </div>
+                )}
+
+                {/* New Team Member Creation */}
+                {teamMemberMode === 'new' && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={e => setUsername(e.target.value)}
+                      onKeyPress={e => e.key === 'Enter' && addTeamMember()}
+                      placeholder="Username"
+                      style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
+                    />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      onKeyPress={e => e.key === 'Enter' && addTeamMember()}
+                      placeholder="Email"
+                      style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
+                    />
+                    <select
+                      value={org}
+                      onChange={e => setOrg(e.target.value)}
+                      style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
+                    >
+                      <option value="PHG">PHG</option>
+                      <option value={CLIENTS[currentClientId]?.name || 'Client'}>
+                        {CLIENTS[currentClientId]?.name || 'Client'}
+                      </option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <button
+                      onClick={() => {
+                        addTeamMember();
+                        setShowTeamModal(false);
+                      }}
+                      style={{ background: "#3b82f6", color: "white", padding: "8px 20px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
+                    >
+                      Add New Member
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Edit Team Member Modal */}
           {editingMember && (
             <div style={{ 
               position: 'fixed', 
               top: 0, 
-              left: 0, 
+              left: 0,
               right: 0, 
               bottom: 0, 
               background: 'rgba(0,0,0,0.5)', 
@@ -2629,13 +2866,11 @@ function App() {
                           />
                         </td>
                       )}
-                      <td style={{ border: "1px solid #e5e7eb", padding: 8 }}>
-                        <input 
-                          value={item.goal || ''} 
-                          onChange={e => updatePhaseItem(item._id, phase.name, { goal: e.target.value })}
-                          style={{ width: '100%', padding: 4, border: '1px solid #ddd', borderRadius: 4 }}
-                        />
-                      </td>
+                      <ExpandingCell
+                        editable
+                        value={item.goal || ''}
+                        onChange={val => updatePhaseItem(item._id, phase.name, { goal: val })}
+                      />
                       <td>
                         <input 
                           type="date" 
@@ -2644,13 +2879,11 @@ function App() {
                           style={{ width: '100%', padding: 4, border: '1px solid #ddd', borderRadius: 4 }}
                         />
                       </td>
-                      <td style={{ border: "1px solid #e5e7eb", padding: 8 }}>
-                        <input 
-                          value={item.comments || ''} 
-                          onChange={e => updatePhaseItem(item._id, phase.name, { comments: e.target.value })}
-                          style={{ width: '100%', padding: 4, border: '1px solid #ddd', borderRadius: 4 }}
-                        />
-                      </td>
+                      <ExpandingCell
+                        editable
+                        value={item.comments || ''}
+                        onChange={val => updatePhaseItem(item._id, phase.name, { comments: val })}
+                      />
                       <td>
                         <select 
                           value={item.execute} 
@@ -2674,13 +2907,11 @@ function App() {
                           <option value="Resolved">Resolved</option>
                         </select>
                       </td>
-                      <td style={{ border: "1px solid #e5e7eb", padding: 8 }}>
-                        <input 
-                          value={item.commentArea || ''} 
-                          onChange={e => updatePhaseItem(item._id, phase.name, { commentArea: e.target.value })}
-                          style={{ width: '100%', padding: 4, border: '1px solid #ddd', borderRadius: 4 }}
-                        />
-                      </td>
+                      <ExpandingCell
+                        editable
+                        value={item.commentArea || ''}
+                        onChange={val => updatePhaseItem(item._id, phase.name, { commentArea: val })}
+                      />
                       <td>
                         <select 
                           value={item.assigned_to} 
