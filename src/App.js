@@ -466,7 +466,6 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
   const [availableClients, setAvailableClients] = useState([]);
   const [showAddClient, setShowAddClient] = useState(false);
   const [showAdminControl, setShowAdminControl] = useState(false);
-  const [showAdminControlLogin, setShowAdminControlLogin] = useState(false);
   const [newClient, setNewClient] = useState({ 
     id: '', 
     name: '', 
@@ -634,7 +633,7 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           {currentUser.type !== 'team_member' && (
             <button 
-              onClick={() => setShowAdminControlLogin(true)}
+              onClick={() => setShowAdminControl(true)}
               style={{
                 background: '#dc2626',
                 color: 'white',
@@ -727,17 +726,6 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
         </div>
       )}
 
-      {/* Admin Control Login Modal */}
-      {showAdminControlLogin && (
-        <AdminControlLogin
-          onSuccess={() => {
-            setShowAdminControlLogin(false);
-            setShowAdminControl(true);
-          }}
-          onCancel={() => setShowAdminControlLogin(false)}
-        />
-      )}
-
       {/* Admin Control Panel */}
       {showAdminControl && (
         <AdminControlPanel
@@ -749,97 +737,6 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
 }
 
 // Admin Control Components
-function AdminControlLogin({ onSuccess, onCancel }) {
-  const [adminPassword, setAdminPassword] = useState('');
-  const [error, setError] = useState('');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setError('');
-
-    // Admin password verification
-    if (adminPassword === '12345') {
-      onSuccess();
-    } else {
-      setError('Invalid admin password');
-    }
-  };
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000
-    }}>
-      <div style={{
-        background: 'white',
-        padding: '30px',
-        borderRadius: '15px',
-        maxWidth: '400px',
-        width: '90%'
-      }}>
-        <h3 style={{ margin: '0 0 20px 0', textAlign: 'center' }}>🔐 Admin Control Access</h3>
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Admin Password:
-            </label>
-            <input
-              type="password"
-              value={adminPassword}
-              onChange={(e) => setAdminPassword(e.target.value)}
-              placeholder="Enter admin password"
-              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '2px solid #e5e7eb' }}
-              required
-            />
-          </div>
-          {error && (
-            <div style={{ color: 'red', marginBottom: '20px', textAlign: 'center' }}>{error}</div>
-          )}
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              type="submit"
-              style={{
-                flex: 1,
-                background: '#667eea',
-                color: 'white',
-                border: 'none',
-                padding: '12px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              Access Admin Control
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              style={{
-                flex: 1,
-                background: '#6c757d',
-                color: 'white',
-                border: 'none',
-                padding: '12px',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 function AdminControlPanel({ onBack }) {
   const [activeTab, setActiveTab] = useState('clients');
