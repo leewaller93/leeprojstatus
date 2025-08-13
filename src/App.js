@@ -1650,7 +1650,8 @@ function App() {
     fetchTeam();
     fetchInternalTeamMembers();
     fetchClients();
-  }, [fetchPhases, fetchTeam, fetchInternalTeamMembers, fetchClients, currentClientId]);
+    fetchOrgOptions();
+  }, [fetchPhases, fetchTeam, fetchInternalTeamMembers, fetchClients, fetchOrgOptions, currentClientId]);
 
   const addTeamMember = async () => {
     if (!username || !email) {
@@ -2233,6 +2234,11 @@ function App() {
     logo: '🏥',
     color: '#2563eb'
   };
+
+  // Debug: Log current client details
+  console.log('Current client details:', currentClient);
+  console.log('Available clients:', clients);
+  console.log('Current client ID:', currentClientId);
 
 
 
