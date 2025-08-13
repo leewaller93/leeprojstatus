@@ -1700,6 +1700,16 @@ function App() {
   const [editMemberEmail, setEditMemberEmail] = useState('');
   const [clients, setClients] = useState([]);
   const [orgOptions, setOrgOptions] = useState([]);
+  const [newTeamMember, setNewTeamMember] = useState({
+    name: '',
+    username: '',
+    password: '',
+    email: '',
+    org: 'PHG',
+    accessLevel: 'employee',
+    assignedClients: [],
+    notWorking: false
+  });
   
   // Due date filter state
   const [filterDueDate, setFilterDueDate] = useState('');
@@ -1782,6 +1792,43 @@ function App() {
       }
     } catch (error) {
       alert("Error adding team member");
+    }
+  };
+
+  const handleAddTeamMember = async () => {
+    if (!newTeamMember.name || !newTeamMember.username || !newTeamMember.password || !newTeamMember.email || !newTeamMember.org) {
+      alert('Please fill in Name, Username, Password, Email, and Organization');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/internal-team`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTeamMember)
+      });
+
+      if (response.ok) {
+        alert('Team member added successfully!');
+        setNewTeamMember({
+          name: '',
+          username: '',
+          password: '',
+          email: '',
+          org: 'PHG',
+          accessLevel: 'employee',
+          assignedClients: [],
+          notWorking: false
+        });
+        fetchInternalTeamMembers();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+        alert(`Error adding team member: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error('Error adding team member:', error);
+      alert('Error adding team member');
     }
   };
 
