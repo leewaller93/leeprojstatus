@@ -465,7 +465,6 @@ function LoginPage({ onLogin }) {
 function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases, fetchTeam }) {
   const [availableClients, setAvailableClients] = useState([]);
   const [showAddClient, setShowAddClient] = useState(false);
-  const [showAdminControl, setShowAdminControl] = useState(false);
   const [newClient, setNewClient] = useState({ 
     id: '', 
     name: '', 
@@ -623,33 +622,7 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
         ))}
       </div>
 
-      <div style={{ 
-        background: '#f8f9fa', 
-        padding: '20px', 
-        borderRadius: '10px',
-        border: '2px solid #e9ecef'
-      }}>
-        <h3 style={{ margin: '0 0 15px 0', color: '#495057' }}>🔧 Admin Actions</h3>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          {currentUser.type !== 'team_member' && (
-            <button 
-              onClick={() => setShowAdminControl(true)}
-              style={{
-                background: '#dc2626',
-                color: 'white',
-                border: 'none',
-                padding: '12px 20px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold'
-              }}
-            >
-              ⚙️ Admin Control (No Password)
-            </button>
-          )}
-        </div>
-      </div>
+
 
       {showAddClient && (
         <div style={{
@@ -726,11 +699,9 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
         </div>
       )}
 
-      {/* Admin Control Panel */}
-      {showAdminControl && (
-        <AdminControlPanel
-          onBack={() => setShowAdminControl(false)}
-        />
+      {/* Admin Control Panel - Show directly for admins */}
+      {currentUser.type !== 'team_member' && (
+        <AdminControlPanel />
       )}
     </div>
   );
@@ -738,7 +709,7 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
 
 // Admin Control Components
 
-function AdminControlPanel({ onBack }) {
+function AdminControlPanel() {
   const [activeTab, setActiveTab] = useState('clients');
   const [clients, setClients] = useState([]);
   const [internalTeam, setInternalTeam] = useState([]);
@@ -1028,22 +999,6 @@ function AdminControlPanel({ onBack }) {
       }}>
         <h1 style={{ margin: '0', fontSize: '2.5em' }}>⚙️ Admin Control Panel</h1>
         <h2 style={{ margin: '0', fontSize: '1.5em', opacity: 0.9 }}>System Administration</h2>
-        <div style={{ marginTop: '20px' }}>
-          <button 
-            onClick={onBack}
-            style={{
-              background: 'rgba(255,255,255,0.2)',
-              color: 'white',
-              border: '1px solid rgba(255,255,255,0.3)',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            ← Back to Dashboard
-          </button>
-        </div>
       </div>
 
       {/* Tab Navigation */}
