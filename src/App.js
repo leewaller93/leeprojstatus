@@ -1007,6 +1007,27 @@ function AdminControlPanel() {
     setShowAddTeamMember(true);
   };
 
+  // Enhanced client assignment cleanup for AdminControlPanel
+  const cleanupClientAssignments = async (facCode) => {
+    try {
+      // Remove client from all team member assignments
+      const response = await fetch(`${API_BASE_URL}/api/internal-team/cleanup-assignments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ facCode })
+      });
+      
+      if (response.ok) {
+        console.log(`Cleaned up assignments for client ${facCode}`);
+        // Refresh team data
+        fetchInternalTeam();
+        fetchClients();
+      }
+    } catch (error) {
+      console.error('Error cleaning up client assignments:', error);
+    }
+  };
+
   const deleteClient = async (client) => {
     // Prompt for admin credentials
     const adminUserId = prompt('Enter admin user ID:');
@@ -1034,6 +1055,8 @@ function AdminControlPanel() {
         });
 
         if (response.ok) {
+          // Clean up client assignments
+          await cleanupClientAssignments(client.facCode || client.clientId || client._id);
           alert('Client deleted successfully!');
           fetchClients();
         } else {
@@ -1334,82 +1357,28 @@ function AdminControlPanel() {
             background: 'white',
             padding: '30px',
             borderRadius: '15px',
-            maxWidth: '600px',
-            width: '90%',
-            maxHeight: '90vh',
-            overflowY: 'auto'
+            maxWidth: '500px',
+            width: '90%'
           }}>
-            <h3 style={{ margin: '0 0 20px 0' }}>{editingClient ? 'Edit Client Profile' : 'Add New Client Profile'}</h3>
+            <h3 style={{ margin: '0 0 20px 0' }}>Add New Client</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Client Code *:</label>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Client ID:</label>
                 <input
                   type="text"
-                  value={newClient.facCode}
-                  onChange={(e) => setNewClient({...newClient, facCode: e.target.value.toUpperCase()})}
-                  placeholder="e.g., ABC"
-                  maxLength="3"
-                  style={{ width: '60px', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', textAlign: 'center' }}
+                  value={newClient.id}
+                  onChange={(e) => setNewClient({...newClient, id: e.target.value})}
+                  placeholder="e.g., new-hospital"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Client Name *:</label>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Client Name:</label>
                 <input
                   type="text"
                   value={newClient.name}
                   onChange={(e) => setNewClient({...newClient, name: e.target.value})}
-                  placeholder="e.g., ABC Hospital"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Main Contact:</label>
-                <input
-                  type="text"
-                  value={newClient.mainContact}
-                  onChange={(e) => setNewClient({...newClient, mainContact: e.target.value})}
-                  placeholder="e.g., John Doe"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Phone Number:</label>
-                <input
-                  type="tel"
-                  value={newClient.phoneNumber}
-                  onChange={(e) => setNewClient({...newClient, phoneNumber: e.target.value})}
-                  placeholder="e.g., (555) 123-4567"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>City:</label>
-                <input
-                  type="text"
-                  value={newClient.city}
-                  onChange={(e) => setNewClient({...newClient, city: e.target.value})}
-                  placeholder="e.g., New York"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>State:</label>
-                <input
-                  type="text"
-                  value={newClient.state}
-                  onChange={(e) => setNewClient({...newClient, state: e.target.value})}
-                  placeholder="e.g., NY"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>File Path:</label>
-                <input
-                  type="text"
-                  value={newClient.filePath}
-                  onChange={(e) => setNewClient({...newClient, filePath: e.target.value})}
-                  placeholder="e.g., \\sharepoint\client-files\ABC"
+                  placeholder="e.g., New Hospital Name"
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                 />
               </div>
@@ -1426,10 +1395,10 @@ function AdminControlPanel() {
                   cursor: 'pointer'
                 }}
               >
-                {editingClient ? 'Save Changes' : 'Save Client'}
+                Add Client
               </button>
               <button
-                onClick={handleCancelEdit}
+                onClick={() => setShowAddClient(false)}
                 style={{
                   background: '#6c757d',
                   color: 'white',
@@ -1821,6 +1790,61 @@ function App() {
     fetchClients();
     fetchOrgOptions();
   }, [fetchPhases, fetchTeam, fetchInternalTeamMembers, fetchClients, fetchOrgOptions, currentClientId]);
+
+  // Enhanced team member visibility logic
+  const getVisibleTeamMembers = useCallback(() => {
+    if (currentUser.type === 'admin') {
+      // Admin portal: Show ALL internal team members (PHG/PHGHAS) regardless of assignment
+      return internalTeamMembers.filter(member => 
+        member.org === 'PHG' || member.org === 'PHGHAS'
+      );
+    } else {
+      // Client portal: Show team members assigned to this client, PHG, or Other
+      return team.filter(member => 
+        member.org === 'PHG' || 
+        member.org === currentClient?.name || 
+        member.org === 'Other'
+      );
+    }
+  }, [currentUser.type, internalTeamMembers, team, currentClient?.name]);
+
+  // Enhanced client assignment cleanup
+  const cleanupClientAssignments = useCallback(async (facCode) => {
+    try {
+      // Remove client from all team member assignments
+      const response = await fetch(`${API_BASE_URL}/api/internal-team/cleanup-assignments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ facCode })
+      });
+      
+      if (response.ok) {
+        console.log(`Cleaned up assignments for client ${facCode}`);
+        // Refresh team data
+        fetchInternalTeamMembers();
+        fetchTeam();
+      }
+    } catch (error) {
+      console.error('Error cleaning up client assignments:', error);
+    }
+  }, [fetchInternalTeamMembers, fetchTeam]);
+
+  // Enhanced organization options filtering
+  const getFilteredOrgOptions = useCallback(() => {
+    if (currentUser.type === 'admin') {
+      // Admin portal: Only PHG and PHGHAS
+      return orgOptions.filter(option => 
+        option.value === 'PHG' || option.value === 'PHGHAS'
+      );
+    } else {
+      // Client portal: PHG, current client, or Other
+      return orgOptions.filter(option => 
+        option.value === 'PHG' || 
+        option.value === currentClient?.name || 
+        option.value === 'Other'
+      );
+    }
+  }, [currentUser.type, orgOptions, currentClient?.name]);
 
   const addTeamMember = async () => {
     if (!username || !email) {
@@ -2408,8 +2432,6 @@ function App() {
   console.log('Available clients:', clients);
   console.log('Current client ID:', currentClientId);
 
-
-
   return (
     <div style={{ background: '#f9fafb', minHeight: '100vh' }}>
       <div style={{ 
@@ -2562,11 +2584,11 @@ function App() {
               <h4 style={{ fontWeight: "bold", marginBottom: 8, fontSize: 14 }}>Current Team Members:</h4>
               <div className="error-message">{teamError}</div>
             </div>
-          ) : team.length > 0 ? (
+          ) : getVisibleTeamMembers().length > 0 ? (
             <div style={{ marginTop: 16 }}>
               <h4 style={{ fontWeight: "bold", marginBottom: 8, fontSize: 14 }}>Current Team Members:</h4>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {team.map((member) => (
+                {getVisibleTeamMembers().map((member) => (
                   <div
                     key={member._id}
                     style={{
@@ -2824,7 +2846,7 @@ function App() {
                         onChange={e => setNewTeamMember({...newTeamMember, org: e.target.value})}
                         style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                       >
-                        {orgOptions.map(option => (
+                        {getFilteredOrgOptions().map(option => (
                           <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                       </select>
