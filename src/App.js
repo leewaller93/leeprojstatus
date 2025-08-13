@@ -927,13 +927,20 @@ function AdminControlPanel({ onBack }) {
         : `${API_BASE_URL}/api/clients`;
 
       console.log('Sending client data to backend:', newClient);
-      const response = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newClient)
-      });
-
-      if (response.ok) {
+      console.log('Request URL:', url);
+      console.log('Request method:', method);
+      
+      try {
+        const response = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newClient)
+        });
+        
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+        
+        if (response.ok) {
         alert(editingClient ? 'Client updated successfully!' : 'Client added successfully!');
         setNewClient({
           name: '',
@@ -952,9 +959,12 @@ function AdminControlPanel({ onBack }) {
         const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
         alert(editingClient ? `Error updating client: ${errorMessage}` : `Error adding client: ${errorMessage}`);
       }
-    } catch (error) {
-      alert(editingClient ? `Error updating client: ${error.message}` : `Error adding client: ${error.message}`);
-    }
+          } catch (error) {
+        console.error('Fetch error details:', error);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        alert(editingClient ? `Error updating client: ${error.message}` : `Error adding client: ${error.message}`);
+      }
   };
 
   const handleEditClient = (client) => {
