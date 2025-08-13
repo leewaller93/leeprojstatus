@@ -603,6 +603,9 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
             <div style={{ textAlign: 'center', marginBottom: '10px', fontSize: '12px', color: '#666' }}>
               <div>FAC: {client.facCode}</div>
               <div>{client.city}, {client.state}</div>
+              {client.mainContact && <div>Contact: {client.mainContact}</div>}
+              {client.phoneNumber && <div>Phone: {client.phoneNumber}</div>}
+              {client.email && <div>Email: {client.email}</div>}
             </div>
             <div style={{ textAlign: 'center' }}>
               <button style={{
@@ -2073,19 +2076,6 @@ function App() {
     }
   };
 
-  // Fetch clients and org options
-  const fetchClients = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/clients`);
-      if (response.ok) {
-        const data = await response.json();
-        setClients(data);
-      }
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-    }
-  };
-
   const fetchOrgOptions = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/org-options`);
@@ -2099,12 +2089,6 @@ function App() {
   };
 
   // Enhanced mass update with bulk rules
-
-  // Fetch data on component mount
-  useEffect(() => {
-    fetchClients();
-    fetchOrgOptions();
-  }, []);
 
 
   // Unified mass update function
@@ -2250,10 +2234,7 @@ function App() {
     color: '#2563eb'
   };
 
-  // Debug: Log clients and current client
-  console.log('Available clients:', clients);
-  console.log('Current client ID:', currentClientId);
-  console.log('Current client:', currentClient);
+
 
   return (
     <div style={{ background: '#f9fafb', minHeight: '100vh' }}>
@@ -2270,6 +2251,13 @@ function App() {
             <div>
               <h1 style={{ margin: '0', fontSize: '28px', fontWeight: 'bold' }}>{currentClient.name}</h1>
               <p style={{ margin: '5px 0 0 0', opacity: 0.9 }}>HAS Status Report</p>
+              {currentClient.mainContact && (
+                <p style={{ margin: '3px 0 0 0', fontSize: '14px', opacity: 0.8 }}>
+                  Contact: {currentClient.mainContact}
+                  {currentClient.phoneNumber && ` | ${currentClient.phoneNumber}`}
+                  {currentClient.email && ` | ${currentClient.email}`}
+                </p>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -2318,6 +2306,42 @@ function App() {
       </div>
 
       <div style={{ padding: 32, maxWidth: 900, margin: '0 auto' }}>
+        {/* Client Information Section */}
+        {(currentClient.mainContact || currentClient.phoneNumber || currentClient.email || currentClient.city || currentClient.state) && (
+          <div style={{ 
+            background: 'white', 
+            padding: '16px', 
+            borderRadius: '8px', 
+            marginBottom: '20px', 
+            boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+            border: '1px solid #e5e7eb'
+          }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 'bold', color: '#374151' }}>Client Information</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '14px' }}>
+              {currentClient.mainContact && (
+                <div>
+                  <strong>Contact Person:</strong> {currentClient.mainContact}
+                </div>
+              )}
+              {currentClient.phoneNumber && (
+                <div>
+                  <strong>Phone:</strong> {currentClient.phoneNumber}
+                </div>
+              )}
+              {currentClient.email && (
+                <div>
+                  <strong>Email:</strong> {currentClient.email}
+                </div>
+              )}
+              {(currentClient.city || currentClient.state) && (
+                <div>
+                  <strong>Location:</strong> {currentClient.city}{currentClient.city && currentClient.state && ', '}{currentClient.state}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
         <h1 style={{ fontSize: 32, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: '#1f2937' }}>HAS Status</h1>
 
         <div style={{ marginBottom: 32, background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
