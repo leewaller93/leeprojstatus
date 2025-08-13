@@ -487,12 +487,16 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
           
           // If user is a team member, filter by assigned clients
           if (currentUser.type === 'team_member' && currentUser.assignedClients) {
+            console.log('Team member assigned clients:', currentUser.assignedClients);
+            console.log('All clients:', allClients);
             const filteredClients = allClients.filter(client => 
               currentUser.assignedClients.includes(client.facCode)
             );
+            console.log('Filtered clients for team member:', filteredClients);
             setAvailableClients(filteredClients);
           } else {
             // Admin sees all clients
+            console.log('Admin user - showing all clients:', allClients);
             setAvailableClients(allClients);
           }
         }
