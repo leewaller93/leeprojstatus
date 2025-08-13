@@ -505,12 +505,12 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
     if (newClient.id && newClient.name) {
       try {
         const clientData = {
-          clientId: newClient.id,
+          facCode: newClient.id,
           name: newClient.name,
           color: newClient.color,
           city: newClient.city,
           state: newClient.state,
-          contactPerson: newClient.contactPerson,
+          mainContact: newClient.contactPerson,
           phoneNumber: newClient.phoneNumber
         };
         
