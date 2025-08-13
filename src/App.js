@@ -1809,7 +1809,26 @@ function App() {
       });
 
       if (response.ok) {
-        alert('Team member added successfully!');
+        // Also add the new team member to the current client's team
+        const teamMemberData = await response.json();
+        const addToClientTeam = await fetch(`${API_BASE_URL}/api/invite`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: newTeamMember.username,
+            email: newTeamMember.email,
+            org: newTeamMember.org,
+            clientId: currentClientId
+          })
+        });
+        
+        if (addToClientTeam.ok) {
+          alert('Team member added successfully!');
+          fetchTeam(); // Refresh the client's team display
+        } else {
+          alert('Team member created but not added to current client team');
+        }
+        
         setNewTeamMember({
           name: '',
           username: '',
