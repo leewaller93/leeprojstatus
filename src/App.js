@@ -1923,7 +1923,7 @@ function App() {
       });
       
       if (response.ok) {
-        fetchInternalTeam();
+        fetchTeam();
         setEditingMember(null);
         setEditMemberName('');
         setEditMemberEmail('');
