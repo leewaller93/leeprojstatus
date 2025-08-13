@@ -1512,7 +1512,9 @@ function AdminControlPanel({ onBack }) {
             padding: '30px',
             borderRadius: '15px',
             maxWidth: '500px',
-            width: '90%'
+            width: '90%',
+            maxHeight: '90vh',
+            overflowY: 'auto'
           }}>
             <h3 style={{ margin: '0 0 20px 0' }}>{editingTeamMember ? 'Edit Team Member' : 'Add New Team Member'}</h3>
             <div style={{ display: 'grid', gap: '15px', marginBottom: '15px' }}>
@@ -1608,7 +1610,22 @@ function AdminControlPanel({ onBack }) {
                     : setNewTeamMember({...newTeamMember, assignedClients: selected.map(opt => opt.value)})
                   }
                   placeholder="Select clients..."
-                  styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
+                  styles={{
+                    menu: base => ({ 
+                      ...base, 
+                      zIndex: 9999,
+                      maxHeight: '200px',
+                      overflowY: 'auto'
+                    }),
+                    menuList: base => ({
+                      ...base,
+                      maxHeight: '200px'
+                    }),
+                    control: base => ({
+                      ...base,
+                      minHeight: '38px'
+                    })
+                  }}
                 />
               </div>
             </div>
@@ -2737,7 +2754,22 @@ function App() {
                         value={(newTeamMember.assignedClients || []).map(code => ({ value: code, label: code }))}
                         onChange={selected => setNewTeamMember({...newTeamMember, assignedClients: selected.map(opt => opt.value)})}
                         placeholder="Select clients..."
-                        styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
+                        styles={{
+                          menu: base => ({ 
+                            ...base, 
+                            zIndex: 9999,
+                            maxHeight: '200px',
+                            overflowY: 'auto'
+                          }),
+                          menuList: base => ({
+                            ...base,
+                            maxHeight: '200px'
+                          }),
+                          control: base => ({
+                            ...base,
+                            minHeight: '38px'
+                          })
+                        }}
                       />
                     </div>
                     <div>
@@ -2885,7 +2917,22 @@ function App() {
                       value={(editingMember.assignedClients || []).map(code => ({ value: code, label: code }))} 
                       onChange={selected => setEditingMember({...editingMember, assignedClients: selected.map(opt => opt.value)})} 
                       placeholder="Select clients..." 
-                      styles={{ menu: base => ({ ...base, zIndex: 9999 }) }} 
+                      styles={{
+                        menu: base => ({ 
+                          ...base, 
+                          zIndex: 9999,
+                          maxHeight: '200px',
+                          overflowY: 'auto'
+                        }),
+                        menuList: base => ({
+                          ...base,
+                          maxHeight: '200px'
+                        }),
+                        control: base => ({
+                          ...base,
+                          minHeight: '38px'
+                        })
+                      }} 
                     />
                   </div>
                   <div>
@@ -3079,7 +3126,22 @@ function App() {
               onChange={selected => setFilterMember(selected.map(opt => opt.value))}
               placeholder="Select team members..."
               closeMenuOnSelect={false}
-              styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
+              styles={{
+                menu: base => ({ 
+                  ...base, 
+                  zIndex: 9999,
+                  maxHeight: '200px',
+                  overflowY: 'auto'
+                }),
+                menuList: base => ({
+                  ...base,
+                  maxHeight: '200px'
+                }),
+                control: base => ({
+                  ...base,
+                  minHeight: '38px'
+                })
+              }}
             />
           </div>
           <div style={{ minWidth: 220 }}>
@@ -3096,7 +3158,22 @@ function App() {
               onChange={selected => setFilterStatus(selected.map(opt => opt.value))}
               placeholder="Select statuses..."
               closeMenuOnSelect={false}
-              styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
+              styles={{
+                menu: base => ({ 
+                  ...base, 
+                  zIndex: 9999,
+                  maxHeight: '200px',
+                  overflowY: 'auto'
+                }),
+                menuList: base => ({
+                  ...base,
+                  maxHeight: '200px'
+                }),
+                control: base => ({
+                  ...base,
+                  minHeight: '38px'
+                })
+              }}
             />
           </div>
           <div style={{ minWidth: 220 }}>
