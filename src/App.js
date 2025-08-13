@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom';
 import Select from 'react-select';
 import { CLIENTS } from './clientConfig';
 
+// Cache busting - force refresh
+console.log('App.js loaded at:', new Date().toISOString(), 'Version: 1.0.1');
+
 // Browser history management
 const useBrowserHistory = () => {
   useEffect(() => {
@@ -923,6 +926,7 @@ function AdminControlPanel({ onBack }) {
         ? `${API_BASE_URL}/api/clients/${editingClient.facCode || editingClient.clientId || editingClient._id}`
         : `${API_BASE_URL}/api/clients`;
 
+      console.log('Sending client data to backend:', newClient);
       const response = await fetch(url, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
