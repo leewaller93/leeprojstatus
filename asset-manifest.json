@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/leeprojstatus/static/css/main.e6c13ad2.css",
-    "main.js": "/leeprojstatus/static/js/main.3ff3cdaf.js",
+    "main.js": "/leeprojstatus/static/js/main.9b79472f.js",
     "static/js/453.a4742f95.chunk.js": "/leeprojstatus/static/js/453.a4742f95.chunk.js",
     "index.html": "/leeprojstatus/index.html",
     "main.e6c13ad2.css.map": "/leeprojstatus/static/css/main.e6c13ad2.css.map",
-    "main.3ff3cdaf.js.map": "/leeprojstatus/static/js/main.3ff3cdaf.js.map",
+    "main.9b79472f.js.map": "/leeprojstatus/static/js/main.9b79472f.js.map",
     "453.a4742f95.chunk.js.map": "/leeprojstatus/static/js/453.a4742f95.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.e6c13ad2.css",
-    "static/js/main.3ff3cdaf.js"
+    "static/js/main.9b79472f.js"
   ]
 }
