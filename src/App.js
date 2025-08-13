@@ -1630,11 +1630,24 @@ function App() {
     }
   }, []);
 
+  const fetchClients = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/clients`);
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data);
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchPhases();
     fetchTeam();
     fetchInternalTeamMembers();
-  }, [fetchPhases, fetchTeam, fetchInternalTeamMembers]);
+    fetchClients();
+  }, [fetchPhases, fetchTeam, fetchInternalTeamMembers, fetchClients, currentClientId]);
 
   const addTeamMember = async () => {
     if (!username || !email) {
@@ -2236,6 +2249,11 @@ function App() {
     logo: '🏥',
     color: '#2563eb'
   };
+
+  // Debug: Log clients and current client
+  console.log('Available clients:', clients);
+  console.log('Current client ID:', currentClientId);
+  console.log('Current client:', currentClient);
 
   return (
     <div style={{ background: '#f9fafb', minHeight: '100vh' }}>
