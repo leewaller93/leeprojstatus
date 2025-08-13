@@ -1645,6 +1645,18 @@ function App() {
     }
   }, []);
 
+  const fetchOrgOptions = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/org-options`);
+      if (response.ok) {
+        const data = await response.json();
+        setOrgOptions(data);
+      }
+    } catch (error) {
+      console.error('Error fetching org options:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchPhases();
     fetchTeam();
@@ -2074,18 +2086,6 @@ function App() {
     } catch (error) {
       console.error('Error checking for duplicates:', error);
       return true;
-    }
-  };
-
-  const fetchOrgOptions = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/org-options`);
-      if (response.ok) {
-        const data = await response.json();
-        setOrgOptions(data);
-      }
-    } catch (error) {
-      console.error('Error fetching org options:', error);
     }
   };
 
