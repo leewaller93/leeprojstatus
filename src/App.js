@@ -331,15 +331,8 @@ const PHG_STANDARD_TEMPLATE = [
   }
 ];
 
-// Test Users Configuration
+// Test Users Configuration - Only Admin
 const TEST_USERS = {
-  'lee': {
-    password: '1234',
-    name: 'Lee',
-    role: 'client',
-    clientId: 'abc-hospital',
-    org: 'ABC Hospital'
-  },
   'admin': {
     password: '12345',
     name: 'Administrator',
@@ -367,21 +360,20 @@ function LoginPage({ onLogin }) {
     e.preventDefault();
     setError('');
 
-    // Check if it's a standard user first
+    // Check if it's admin first
     const user = TEST_USERS[username.toLowerCase()];
     if (user && user.password === password) {
       onLogin(user);
       return;
     }
 
-    // Check if it's a team member login
+    // Check if it's a team member login using username
     try {
-      const response = await fetch(`${API_BASE_URL}/api/internal-team/${username.toLowerCase()}`);
+      const response = await fetch(`${API_BASE_URL}/api/internal-team/login/${username.toLowerCase()}`);
       if (response.ok) {
         const teamMember = await response.json();
-        // For now, we'll use a simple password check
-        // In production, this should be proper authentication
-        if (password === '1234') { // Default password for team members
+        // Check password
+        if (password === teamMember.password) {
           onLogin({
             ...teamMember,
             type: 'team_member',
@@ -860,15 +852,21 @@ function AdminControlPanel({ onBack }) {
   });
   const [newTeamMember, setNewTeamMember] = useState({
     name: '',
+    username: '',
+    password: '',
     email: '',
-    teamName: 'PHG',
+    org: 'PHG',
+    accessLevel: 'employee',
     assignedClients: []
   });
+  const [editingTeamMember, setEditingTeamMember] = useState(null);
+  const [orgOptions, setOrgOptions] = useState([]);
 
   // Fetch clients and team members on component mount
   useEffect(() => {
     fetchClients();
     fetchInternalTeam();
+    fetchOrgOptions();
   }, []);
 
   const fetchClients = async () => {
@@ -892,6 +890,18 @@ function AdminControlPanel({ onBack }) {
       }
     } catch (error) {
       console.error('Error fetching internal team:', error);
+    }
+  };
+
+  const fetchOrgOptions = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/org-options`);
+      if (response.ok) {
+        const data = await response.json();
+        setOrgOptions(data);
+      }
+    } catch (error) {
+      console.error('Error fetching org options:', error);
     }
   };
 
@@ -972,8 +982,8 @@ function AdminControlPanel({ onBack }) {
   };
 
   const handleAddTeamMember = async () => {
-    if (!newTeamMember.name || !newTeamMember.email) {
-      alert('Please fill in Name and Email');
+    if (!newTeamMember.name || !newTeamMember.username || !newTeamMember.password || !newTeamMember.email || !newTeamMember.org) {
+      alert('Please fill in Name, Username, Password, Email, and Organization');
       return;
     }
 
@@ -988,18 +998,66 @@ function AdminControlPanel({ onBack }) {
         alert('Team member added successfully!');
         setNewTeamMember({
           name: '',
+          username: '',
+          password: '',
           email: '',
-          teamName: 'PHG',
+          org: 'PHG',
+          accessLevel: 'employee',
           assignedClients: []
         });
         setShowAddTeamMember(false);
         fetchInternalTeam();
       } else {
-        alert('Error adding team member');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || 'Error adding team member';
+        alert(errorMessage);
       }
     } catch (error) {
       alert('Error adding team member');
     }
+  };
+
+  const handleEditTeamMember = async () => {
+    if (!editingTeamMember.name || !editingTeamMember.username || !editingTeamMember.email || !editingTeamMember.org) {
+      alert('Please fill in Name, Username, Email, and Organization');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/internal-team/${editingTeamMember._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingTeamMember)
+      });
+
+      if (response.ok) {
+        alert('Team member updated successfully!');
+        setEditingTeamMember(null);
+        setShowAddTeamMember(false);
+        fetchInternalTeam();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || 'Error updating team member';
+        alert(errorMessage);
+      }
+    } catch (error) {
+      alert('Error updating team member');
+    }
+  };
+
+  const startEditTeamMember = (member) => {
+    setEditingTeamMember({
+      _id: member._id,
+      name: member.name,
+      username: member.username,
+      password: member.password || '',
+      email: member.email,
+      org: member.org,
+      accessLevel: member.accessLevel,
+      assignedClients: member.assignedClients || [],
+      notWorking: member.notWorking || false
+    });
+    setShowAddTeamMember(true);
   };
 
   const deleteClient = async (client) => {
@@ -1242,25 +1300,45 @@ function AdminControlPanel({ onBack }) {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                   <h4 style={{ margin: 0, color: '#1f2937' }}>{member.name}</h4>
-                  <button
-                    onClick={() => deleteTeamMember(member._id)}
-                    style={{
-                      background: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '12px'
-                    }}
-                  >
-                    🗑️ Delete
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => startEditTeamMember(member)}
+                      style={{
+                        background: '#007bff',
+                        color: 'white',
+                        border: 'none',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => deleteTeamMember(member._id)}
+                      style={{
+                        background: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
                 </div>
                 <div style={{ fontSize: '14px', marginBottom: '10px' }}>
+                  <div><strong>Full Name:</strong> {member.name}</div>
+                  <div><strong>Username:</strong> {member.username}</div>
                   <div><strong>Email:</strong> {member.email}</div>
-                  <div><strong>Team:</strong> {member.teamName}</div>
+                  <div><strong>Organization:</strong> {member.org}</div>
+                  <div><strong>Access Level:</strong> {member.accessLevel}</div>
                   <div><strong>Assigned Clients:</strong> {member.assignedClients && member.assignedClients.length > 0 ? member.assignedClients.join(', ') : 'None'}</div>
+                  <div><strong>Status:</strong> {member.notWorking ? 'Not Working' : 'Active'}</div>
                 </div>
               </div>
             ))}
@@ -1419,15 +1497,44 @@ function AdminControlPanel({ onBack }) {
             maxWidth: '500px',
             width: '90%'
           }}>
-            <h3 style={{ margin: '0 0 20px 0' }}>Add New Team Member</h3>
+            <h3 style={{ margin: '0 0 20px 0' }}>{editingTeamMember ? 'Edit Team Member' : 'Add New Team Member'}</h3>
             <div style={{ display: 'grid', gap: '15px', marginBottom: '15px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Name *:</label>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Full Name *:</label>
                 <input
                   type="text"
-                  value={newTeamMember.name}
-                  onChange={(e) => setNewTeamMember({...newTeamMember, name: e.target.value})}
+                  value={editingTeamMember ? editingTeamMember.name : newTeamMember.name}
+                  onChange={(e) => editingTeamMember 
+                    ? setEditingTeamMember({...editingTeamMember, name: e.target.value})
+                    : setNewTeamMember({...newTeamMember, name: e.target.value})
+                  }
                   placeholder="e.g., John Doe"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Username *:</label>
+                <input
+                  type="text"
+                  value={editingTeamMember ? editingTeamMember.username : newTeamMember.username}
+                  onChange={(e) => editingTeamMember 
+                    ? setEditingTeamMember({...editingTeamMember, username: e.target.value})
+                    : setNewTeamMember({...newTeamMember, username: e.target.value})
+                  }
+                  placeholder="e.g., johndoe"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Password *:</label>
+                <input
+                  type="password"
+                  value={editingTeamMember ? editingTeamMember.password : newTeamMember.password}
+                  onChange={(e) => editingTeamMember 
+                    ? setEditingTeamMember({...editingTeamMember, password: e.target.value})
+                    : setNewTeamMember({...newTeamMember, password: e.target.value})
+                  }
+                  placeholder="Enter password"
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                 />
               </div>
@@ -1435,29 +1542,54 @@ function AdminControlPanel({ onBack }) {
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Email *:</label>
                 <input
                   type="email"
-                  value={newTeamMember.email}
-                  onChange={(e) => setNewTeamMember({...newTeamMember, email: e.target.value})}
+                  value={editingTeamMember ? editingTeamMember.email : newTeamMember.email}
+                  onChange={(e) => editingTeamMember 
+                    ? setEditingTeamMember({...editingTeamMember, email: e.target.value})
+                    : setNewTeamMember({...newTeamMember, email: e.target.value})
+                  }
                   placeholder="e.g., john.doe@phg.com"
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Team Name:</label>
-                <input
-                  type="text"
-                  value={newTeamMember.teamName}
-                  onChange={(e) => setNewTeamMember({...newTeamMember, teamName: e.target.value})}
-                  placeholder="PHG"
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Organization *:</label>
+                <select
+                  value={editingTeamMember ? editingTeamMember.org : newTeamMember.org}
+                  onChange={(e) => editingTeamMember 
+                    ? setEditingTeamMember({...editingTeamMember, org: e.target.value})
+                    : setNewTeamMember({...newTeamMember, org: e.target.value})
+                  }
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
+                >
+                  {orgOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Access Level:</label>
+                <select
+                  value={editingTeamMember ? editingTeamMember.accessLevel : newTeamMember.accessLevel}
+                  onChange={(e) => editingTeamMember 
+                    ? setEditingTeamMember({...editingTeamMember, accessLevel: e.target.value})
+                    : setNewTeamMember({...newTeamMember, accessLevel: e.target.value})
+                  }
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                >
+                  <option value="employee">Employee</option>
+                  <option value="admin">Admin</option>
+                </select>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Assigned Clients:</label>
                 <Select
                   isMulti
                   options={clients.map(client => ({ value: client.facCode, label: `${client.name} (${client.facCode})` }))}
-                  value={newTeamMember.assignedClients.map(code => ({ value: code, label: code }))}
-                  onChange={selected => setNewTeamMember({...newTeamMember, assignedClients: selected.map(opt => opt.value)})}
+                  value={(editingTeamMember ? editingTeamMember.assignedClients : newTeamMember.assignedClients).map(code => ({ value: code, label: code }))}
+                  onChange={selected => editingTeamMember 
+                    ? setEditingTeamMember({...editingTeamMember, assignedClients: selected.map(opt => opt.value)})
+                    : setNewTeamMember({...newTeamMember, assignedClients: selected.map(opt => opt.value)})
+                  }
                   placeholder="Select clients..."
                   styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
                 />
@@ -1465,7 +1597,7 @@ function AdminControlPanel({ onBack }) {
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
-                onClick={handleAddTeamMember}
+                onClick={editingTeamMember ? handleEditTeamMember : handleAddTeamMember}
                 style={{
                   background: '#28a745',
                   color: 'white',
@@ -1475,10 +1607,13 @@ function AdminControlPanel({ onBack }) {
                   cursor: 'pointer'
                 }}
               >
-                Add Team Member
+                {editingTeamMember ? 'Update Team Member' : 'Add Team Member'}
               </button>
               <button
-                onClick={() => setShowAddTeamMember(false)}
+                onClick={() => {
+                  setShowAddTeamMember(false);
+                  setEditingTeamMember(null);
+                }}
                 style={{
                   background: '#6c757d',
                   color: 'white',

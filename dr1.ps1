@@ -25,36 +25,57 @@ if ($LASTEXITCODE -ne 0) {
 # Step 2: Deploy Backend (Render)
 Write-Host "Step 2: Deploying backend to Render..." -ForegroundColor Yellow
 
-# Commit and push backend changes
+# Check if backend has changes
 cd has-status-backend
-git add .
-git commit -m "Backend update: $CommitMessage"
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Backend commit failed!" -ForegroundColor Red
-    exit 1
-}
+git status --porcelain
+$backendChanges = $LASTEXITCODE -eq 0 -and (git status --porcelain | Measure-Object -Line).Lines -gt 0
 
-git push
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Backend push failed!" -ForegroundColor Red
-    exit 1
+if ($backendChanges) {
+    Write-Host "Backend has changes. Committing..." -ForegroundColor Yellow
+    # Commit and push backend changes
+    git add .
+    git commit -m "Backend update: $CommitMessage"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Backend commit failed!" -ForegroundColor Red
+        exit 1
+    }
+
+    git push
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Backend push failed!" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "Backend changes committed and pushed" -ForegroundColor Green
+} else {
+    Write-Host "No backend changes to commit" -ForegroundColor Yellow
 }
 cd ..
 
-Write-Host "Backend changes committed and pushed" -ForegroundColor Green
-
-# Update submodule reference
-git add has-status-backend
-git commit -m "Update backend submodule: $CommitMessage"
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Submodule commit failed!" -ForegroundColor Red
-    exit 1
+# Check if has-status-backend is a submodule
+$gitmodulesExists = Test-Path ".gitmodules"
+$hasSubmodule = $false
+if ($gitmodulesExists) {
+    $hasSubmodule = (Get-Content ".gitmodules" -ErrorAction SilentlyContinue | Select-String "has-status-backend") -ne $null
 }
+$isSubmodule = $gitmodulesExists -and $hasSubmodule
 
-git push
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Submodule push failed!" -ForegroundColor Red
-    exit 1
+if ($isSubmodule) {
+    Write-Host "Updating submodule reference..." -ForegroundColor Yellow
+    # Update submodule reference
+    git add has-status-backend
+    git commit -m "Update backend submodule: $CommitMessage"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Submodule commit failed!" -ForegroundColor Red
+        exit 1
+    }
+
+    git push
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Submodule push failed!" -ForegroundColor Red
+        exit 1
+    }
+} else {
+    Write-Host "has-status-backend is not a submodule, skipping submodule update" -ForegroundColor Yellow
 }
 
 Write-Host "Backend deployment triggered" -ForegroundColor Green
