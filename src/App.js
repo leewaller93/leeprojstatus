@@ -645,7 +645,7 @@ function AdminDashboard({ currentUser, onLogout, setCurrentClientId, fetchPhases
                 fontWeight: 'bold'
               }}
             >
-              ⚙️ Admin Control
+              ⚙️ Admin Control (No Password)
             </button>
           )}
         </div>
