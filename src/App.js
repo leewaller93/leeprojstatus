@@ -6,6 +6,47 @@ import { CLIENTS } from './clientConfig';
 // Cache busting - force refresh
 console.log('App.js loaded at:', new Date().toISOString(), 'Version: 1.0.1');
 
+// Add loading spinner CSS
+const addLoadingSpinnerCSS = () => {
+  if (!document.getElementById('loading-spinner-css')) {
+    const style = document.createElement('style');
+    style.id = 'loading-spinner-css';
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 8px;
+      }
+      .loading-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        color: #666;
+      }
+      .error-message {
+        color: #dc3545;
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        padding: 10px;
+        margin: 10px 0;
+        text-align: center;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+};
+
 // Browser history management
 const useBrowserHistory = () => {
   useEffect(() => {
@@ -739,6 +780,8 @@ function AdminControlPanel() {
   });
   const [editingTeamMember, setEditingTeamMember] = useState(null);
   const [orgOptions, setOrgOptions] = useState([]);
+  const [isDeletingClient, setIsDeletingClient] = useState(false);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
 
   // Fetch clients and team members on component mount
   useEffect(() => {
@@ -748,14 +791,26 @@ function AdminControlPanel() {
   }, []);
 
   const fetchClients = async () => {
+    setIsLoadingClients(true);
     try {
+      console.log('Fetching clients from:', `${API_BASE_URL}/api/clients`);
       const response = await fetch(`${API_BASE_URL}/api/clients`);
+      console.log('Client fetch response status:', response.status);
+      console.log('Client fetch response ok:', response.ok);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Clients fetched successfully:', data);
         setClients(data);
+      } else {
+        console.error('Failed to fetch clients. Status:', response.status);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
       }
     } catch (error) {
       console.error('Error fetching clients:', error);
+    } finally {
+      setIsLoadingClients(false);
     }
   };
 
@@ -776,7 +831,11 @@ function AdminControlPanel() {
       const response = await fetch(`${API_BASE_URL}/api/org-options`);
       if (response.ok) {
         const data = await response.json();
-        setOrgOptions(data);
+        // Filter org options based on context - only PHG and PHGHAS for internal team
+        const filteredOptions = data.filter(option => 
+          option.value === 'PHG' || option.value === 'PHGHAS'
+        );
+        setOrgOptions(filteredOptions);
       }
     } catch (error) {
       console.error('Error fetching org options:', error);
@@ -949,12 +1008,29 @@ function AdminControlPanel() {
   };
 
   const deleteClient = async (client) => {
-    if (window.confirm('Are you sure you want to delete this client?')) {
+    // Prompt for admin credentials
+    const adminUserId = prompt('Enter admin user ID:');
+    const adminEmail = prompt('Enter admin email:');
+    const adminPassword = prompt('Enter admin password:');
+    
+    if (!adminUserId || !adminEmail || !adminPassword) {
+      alert('Admin credentials required to delete client');
+      return;
+    }
+    
+    if (window.confirm('Are you sure you want to delete this client? This will also remove all team member assignments to this client.')) {
+      setIsDeletingClient(true);
       try {
         // Use facCode if available, otherwise use clientId, fallback to _id
         const clientIdentifier = client.facCode || client.clientId || client._id;
         const response = await fetch(`${API_BASE_URL}/api/clients/${clientIdentifier}`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            adminUserId,
+            adminEmail,
+            adminPassword
+          })
         });
 
         if (response.ok) {
@@ -967,6 +1043,8 @@ function AdminControlPanel() {
         }
       } catch (error) {
         alert(`Error deleting client: ${error.message}`);
+      } finally {
+        setIsDeletingClient(false);
       }
     }
   };
@@ -1074,7 +1152,25 @@ function AdminControlPanel() {
             gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
             gap: '20px' 
           }}>
-            {clients.map(client => (
+            {clients.length === 0 ? (
+              <div style={{ 
+                gridColumn: '1 / -1', 
+                textAlign: 'center', 
+                padding: '40px',
+                color: '#6b7280',
+                fontSize: '16px'
+              }}>
+                {isLoadingClients ? (
+                  <div className="loading-container">
+                    <div className="loading-spinner"></div>
+                    Loading clients...
+                  </div>
+                ) : (
+                  'No clients found. Add a new client to get started.'
+                )}
+              </div>
+            ) : (
+              clients.map(client => (
               <div key={client._id} style={{
                 background: 'white',
                 border: '2px solid #e5e7eb',
@@ -1101,17 +1197,18 @@ function AdminControlPanel() {
                     </button>
                     <button
                       onClick={() => deleteClient(client)}
+                      disabled={isDeletingClient}
                       style={{
-                        background: '#ef4444',
+                        background: isDeletingClient ? '#9ca3af' : '#ef4444',
                         color: 'white',
                         border: 'none',
                         padding: '4px 8px',
                         borderRadius: '4px',
-                        cursor: 'pointer',
+                        cursor: isDeletingClient ? 'not-allowed' : 'pointer',
                         fontSize: '12px'
                       }}
                     >
-                      🗑️ Delete
+                      {isDeletingClient ? '⏳ Deleting...' : '🗑️ Delete'}
                     </button>
                   </div>
                 </div>
@@ -1124,7 +1221,8 @@ function AdminControlPanel() {
                   <div><strong>File Path:</strong> {client.filePath}</div>
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
         </div>
       )}
@@ -1527,6 +1625,11 @@ function App() {
   useBrowserHistory();
   useRouting();
   
+  // Initialize loading spinner CSS
+  useEffect(() => {
+    addLoadingSpinnerCSS();
+  }, []);
+  
   // Modal state management
   const [showTeamModal, setShowTeamModal] = useState(false);
   
@@ -1594,8 +1697,28 @@ function App() {
   const [teamMemberMode, setTeamMemberMode] = useState('new'); // 'existing' or 'new'
   const [selectedExistingMember, setSelectedExistingMember] = useState('');
   const [internalTeamMembers, setInternalTeamMembers] = useState([]);
+  
+  // Loading states
+  const [isLoadingPhases, setIsLoadingPhases] = useState(false);
+  const [isLoadingTeam, setIsLoadingTeam] = useState(false);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [isLoadingInternalTeam, setIsLoadingInternalTeam] = useState(false);
+  const [isLoadingOrgOptions, setIsLoadingOrgOptions] = useState(false);
+  const [isSavingTeamMember, setIsSavingTeamMember] = useState(false);
+  const [isDeletingClient, setIsDeletingClient] = useState(false);
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [isUpdatingTask, setIsUpdatingTask] = useState(false);
+  
+  // Error states
+  const [phasesError, setPhasesError] = useState('');
+  const [teamError, setTeamError] = useState('');
+  const [clientsError, setClientsError] = useState('');
+  const [internalTeamError, setInternalTeamError] = useState('');
+  const [orgOptionsError, setOrgOptionsError] = useState('');
 
   const fetchPhases = useCallback(async () => {
+    setIsLoadingPhases(true);
+    setPhasesError('');
     try {
       const response = await fetch(`${API_BASE_URL}/api/phases?clientId=${currentClientId}`);
       const data = await response.json();
@@ -1607,53 +1730,87 @@ function App() {
       setPhases(grouped);
     } catch (error) {
       console.error('Error fetching phases:', error);
+      setPhasesError('Failed to load phases. Please try again.');
       setPhases([]);
+    } finally {
+      setIsLoadingPhases(false);
     }
   }, [currentClientId]);
 
   const fetchTeam = useCallback(async () => {
+    setIsLoadingTeam(true);
+    setTeamError('');
     try {
       const response = await fetch(`${API_BASE_URL}/api/team?clientId=${currentClientId}`);
       const data = await response.json();
       setTeam(data);
     } catch (error) {
       console.error('Error fetching team:', error);
+      setTeamError('Failed to load team members. Please try again.');
       setTeam([]);
+    } finally {
+      setIsLoadingTeam(false);
     }
   }, [currentClientId]);
 
   const fetchInternalTeamMembers = useCallback(async () => {
+    setIsLoadingInternalTeam(true);
+    setInternalTeamError('');
     try {
       const response = await fetch(`${API_BASE_URL}/api/internal-team`);
       const data = await response.json();
       setInternalTeamMembers(data);
     } catch (error) {
       console.error('Error fetching internal team members:', error);
+      setInternalTeamError('Failed to load internal team members. Please try again.');
       setInternalTeamMembers([]);
+    } finally {
+      setIsLoadingInternalTeam(false);
     }
   }, []);
 
   const fetchClients = useCallback(async () => {
+    setIsLoadingClients(true);
+    setClientsError('');
     try {
       const response = await fetch(`${API_BASE_URL}/api/clients`);
       if (response.ok) {
         const data = await response.json();
         setClients(data);
+      } else {
+        setClientsError('Failed to load clients. Please try again.');
       }
     } catch (error) {
       console.error('Error fetching clients:', error);
+      setClientsError('Failed to load clients. Please try again.');
+    } finally {
+      setIsLoadingClients(false);
     }
   }, []);
 
   const fetchOrgOptions = useCallback(async () => {
+    setIsLoadingOrgOptions(true);
+    setOrgOptionsError('');
     try {
       const response = await fetch(`${API_BASE_URL}/api/org-options`);
       if (response.ok) {
         const data = await response.json();
-        setOrgOptions(data);
+        // For client team members, show PHG, current client, and Other
+        const currentClientName = currentClient?.name || CLIENTS[currentClientId]?.name;
+        const filteredOptions = data.filter(option => 
+          option.value === 'PHG' || 
+          option.value === currentClientName || 
+          option.value === 'Other'
+        );
+        setOrgOptions(filteredOptions);
+      } else {
+        setOrgOptionsError('Failed to load organization options. Please try again.');
       }
     } catch (error) {
       console.error('Error fetching org options:', error);
+      setOrgOptionsError('Failed to load organization options. Please try again.');
+    } finally {
+      setIsLoadingOrgOptions(false);
     }
   }, []);
 
@@ -1671,9 +1828,18 @@ function App() {
       return;
     }
     
-    // Get client name from database or fallback to hardcoded
-    const clientOrg = currentClient?.name || CLIENTS[currentClientId]?.name || 'PHG';
-    const finalOrg = org === 'PHG' ? 'PHG' : clientOrg;
+    setIsSavingTeamMember(true);
+    
+    // Handle organization assignment based on selection
+    let finalOrg = org;
+    if (org === 'PHG') {
+      finalOrg = 'PHG';
+    } else if (org === 'Other') {
+      finalOrg = 'Other';
+    } else {
+      // If org is the current client name, use it directly
+      finalOrg = org;
+    }
     
     const body = { username, email, org: finalOrg, clientId: currentClientId };
     try {
@@ -1694,6 +1860,8 @@ function App() {
       }
     } catch (error) {
       alert("Error adding team member");
+    } finally {
+      setIsSavingTeamMember(false);
     }
   };
 
@@ -2358,22 +2526,43 @@ function App() {
               setTeamMemberMode('new');
               setShowTeamModal(true);
             }}
+            disabled={isSavingTeamMember}
             style={{ 
-              background: "#3b82f6", 
+              background: isSavingTeamMember ? "#9ca3af" : "#3b82f6", 
               color: "white", 
               padding: "12px 20px", 
               borderRadius: 6, 
               border: "none", 
-              cursor: "pointer", 
+              cursor: isSavingTeamMember ? "not-allowed" : "pointer", 
               fontWeight: "bold",
               fontSize: "14px"
             }}
           >
-            ➕ Add Team Member
+            {isSavingTeamMember ? (
+              <>
+                <div className="loading-spinner"></div>
+                Adding...
+              </>
+            ) : (
+              "➕ Add Team Member"
+            )}
           </button>
           
           {/* Team Members Display */}
-          {team.length > 0 && (
+          {isLoadingTeam ? (
+            <div style={{ marginTop: 16 }}>
+              <h4 style={{ fontWeight: "bold", marginBottom: 8, fontSize: 14 }}>Current Team Members:</h4>
+              <div className="loading-container">
+                <div className="loading-spinner"></div>
+                Loading team members...
+              </div>
+            </div>
+          ) : teamError ? (
+            <div style={{ marginTop: 16 }}>
+              <h4 style={{ fontWeight: "bold", marginBottom: 8, fontSize: 14 }}>Current Team Members:</h4>
+              <div className="error-message">{teamError}</div>
+            </div>
+          ) : team.length > 0 ? (
             <div style={{ marginTop: 16 }}>
               <h4 style={{ fontWeight: "bold", marginBottom: 8, fontSize: 14 }}>Current Team Members:</h4>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -2461,6 +2650,11 @@ function App() {
                   </div>
                 ))}
               </div>
+            </div>
+          ) : (
+            <div style={{ marginTop: 16 }}>
+              <h4 style={{ fontWeight: "bold", marginBottom: 8, fontSize: 14 }}>Current Team Members:</h4>
+              <div style={{ color: "#6b7280", fontSize: 14 }}>No team members assigned yet.</div>
             </div>
           )}
           
@@ -3219,7 +3413,20 @@ function App() {
           )}
         </div>
 
-        {phases.map((phase, phaseIdx) => {
+        {/* Phases/Tasks Display */}
+        {isLoadingPhases ? (
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            Loading phases and tasks...
+          </div>
+        ) : phasesError ? (
+          <div className="error-message">{phasesError}</div>
+        ) : phases.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+            No phases or tasks found for this client.
+          </div>
+        ) : (
+          phases.map((phase, phaseIdx) => {
           let items = phase.items;
           if (filterMember.length > 0) items = items.filter(i => filterMember.includes(i.assigned_to));
           if (filterStatus.length > 0) items = items.filter(i => filterStatus.includes(i.stage));
@@ -3345,7 +3552,8 @@ function App() {
               </table>
             </div>
           );
-        })}
+        })
+        )}
 
         {/* Clear All Tasks Section - Added at the bottom */}
         {phases.some(phase => phase.items.length > 0) && (
