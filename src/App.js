@@ -2575,43 +2575,123 @@ function App() {
 
                 {/* New Team Member Creation */}
                 {teamMemberMode === 'new' && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={e => setUsername(e.target.value)}
-                      onKeyPress={e => e.key === 'Enter' && addTeamMember()}
-                      placeholder="Username"
-                      style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
-                    />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      onKeyPress={e => e.key === 'Enter' && addTeamMember()}
-                      placeholder="Email"
-                      style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
-                    />
-                    <select
-                      value={org}
-                      onChange={e => setOrg(e.target.value)}
-                      style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
-                    >
-                      <option value="PHG">PHG</option>
-                      <option value={CLIENTS[currentClientId]?.name || 'Client'}>
-                        {CLIENTS[currentClientId]?.name || 'Client'}
-                      </option>
-                      <option value="Other">Other</option>
-                    </select>
-                    <button
-                      onClick={() => {
-                        addTeamMember();
-                        setShowTeamModal(false);
-                      }}
-                      style={{ background: "#3b82f6", color: "white", padding: "8px 20px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: "bold" }}
-                    >
-                      Add New Member
-                    </button>
+                  <div style={{ display: "grid", gap: "15px", marginBottom: "20px" }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Full Name *:</label>
+                      <input
+                        type="text"
+                        value={newTeamMember.name || ''}
+                        onChange={e => setNewTeamMember({...newTeamMember, name: e.target.value})}
+                        placeholder="e.g., John Doe"
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Username *:</label>
+                      <input
+                        type="text"
+                        value={newTeamMember.username || ''}
+                        onChange={e => setNewTeamMember({...newTeamMember, username: e.target.value})}
+                        placeholder="e.g., johndoe"
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Password *:</label>
+                      <input
+                        type="password"
+                        value={newTeamMember.password || ''}
+                        onChange={e => setNewTeamMember({...newTeamMember, password: e.target.value})}
+                        placeholder="Enter password"
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Email *:</label>
+                      <input
+                        type="email"
+                        value={newTeamMember.email || ''}
+                        onChange={e => setNewTeamMember({...newTeamMember, email: e.target.value})}
+                        placeholder="e.g., john.doe@phg.com"
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Organization *:</label>
+                      <select
+                        value={newTeamMember.org || 'PHG'}
+                        onChange={e => setNewTeamMember({...newTeamMember, org: e.target.value})}
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                      >
+                        {orgOptions.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Access Level:</label>
+                      <select
+                        value={newTeamMember.accessLevel || 'employee'}
+                        onChange={e => setNewTeamMember({...newTeamMember, accessLevel: e.target.value})}
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                      >
+                        <option value="employee">Employee</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Assigned Clients:</label>
+                      <Select
+                        isMulti
+                        options={clients.map(client => ({ value: client.facCode, label: `${client.name} (${client.facCode})` }))}
+                        value={(newTeamMember.assignedClients || []).map(code => ({ value: code, label: code }))}
+                        onChange={selected => setNewTeamMember({...newTeamMember, assignedClients: selected.map(opt => opt.value)})}
+                        placeholder="Select clients..."
+                        styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
+                        <input
+                          type="checkbox"
+                          checked={newTeamMember.notWorking || false}
+                          onChange={e => setNewTeamMember({...newTeamMember, notWorking: e.target.checked})}
+                          style={{ margin: 0 }}
+                        />
+                        <span style={{ fontWeight: 'bold' }}>Not Working</span>
+                      </label>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                      <button
+                        onClick={() => setShowTeamModal(false)}
+                        style={{
+                          background: '#6c757d',
+                          color: 'white',
+                          border: 'none',
+                          padding: '10px 20px',
+                          borderRadius: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleAddTeamMember();
+                          setShowTeamModal(false);
+                        }}
+                        style={{
+                          background: '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          padding: '10px 20px',
+                          borderRadius: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Add New Member
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
