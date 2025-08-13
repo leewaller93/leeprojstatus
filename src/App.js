@@ -2341,8 +2341,12 @@ function App() {
     />;
   }
 
-  // Get current client info
-  const currentClient = CLIENTS[currentClientId] || CLIENTS['demo'];
+  // Get current client info from database
+  const currentClient = clients.find(client => client.facCode === currentClientId) || {
+    name: 'Demo Hospital',
+    logo: '🏥',
+    color: '#2563eb'
+  };
 
   return (
     <div style={{ background: '#f9fafb', minHeight: '100vh' }}>
