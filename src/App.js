@@ -1698,6 +1698,8 @@ function App() {
   const [editingMember, setEditingMember] = useState(null);
   const [editMemberName, setEditMemberName] = useState('');
   const [editMemberEmail, setEditMemberEmail] = useState('');
+  const [clients, setClients] = useState([]);
+  const [orgOptions, setOrgOptions] = useState([]);
   
   // Due date filter state
   const [filterDueDate, setFilterDueDate] = useState('');
@@ -1899,32 +1901,40 @@ function App() {
   };
 
   const saveTeamMemberEdit = async () => {
-    if (!editMemberName || !editMemberEmail) {
-      alert("Please enter both name and email");
+    if (!editMemberName || !editingMember.username || !editingMember.password || !editMemberEmail || !editingMember.org) {
+      alert("Please fill in Name, Username, Password, Email, and Organization");
       return;
     }
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/team/${editingMember._id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/internal-team/${editingMember._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: editMemberName,
+          name: editMemberName,
+          username: editingMember.username,
+          password: editingMember.password,
           email: editMemberEmail,
-          clientId: currentClientId
+          org: editingMember.org,
+          accessLevel: editingMember.accessLevel || 'employee',
+          assignedClients: editingMember.assignedClients || [],
+          notWorking: editingMember.notWorking || false
         })
       });
       
       if (response.ok) {
-        fetchTeam();
+        fetchInternalTeam();
         setEditingMember(null);
         setEditMemberName('');
         setEditMemberEmail('');
         alert("Team member updated successfully");
       } else {
-        alert("Error updating team member");
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+        alert(`Error updating team member: ${errorMessage}`);
       }
     } catch (error) {
+      console.error('Error updating team member:', error);
       alert("Error updating team member");
     }
   };
@@ -2106,7 +2116,38 @@ function App() {
     }
   };
 
+  // Fetch clients and org options
+  const fetchClients = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/clients`);
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data);
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
+
+  const fetchOrgOptions = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/org-options`);
+      if (response.ok) {
+        const data = await response.json();
+        setOrgOptions(data);
+      }
+    } catch (error) {
+      console.error('Error fetching org options:', error);
+    }
+  };
+
   // Enhanced mass update with bulk rules
+
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchClients();
+    fetchOrgOptions();
+  }, []);
 
 
   // Unified mass update function
@@ -2593,58 +2634,129 @@ function App() {
             }}>
               <div style={{ 
                 background: 'white', 
-                padding: '24px', 
-                borderRadius: '8px', 
-                minWidth: '400px',
-                boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                padding: '30px', 
+                borderRadius: '15px', 
+                maxWidth: '500px',
+                width: '90%',
+                maxHeight: '90vh',
+                overflowY: 'auto'
               }}>
-                <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: 'bold' }}>
-                  Edit Team Member
-                </h3>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Name:</label>
-                  <input
-                    type="text"
-                    value={editMemberName}
-                    onChange={e => setEditMemberName(e.target.value)}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                  />
+                <h3 style={{ margin: '0 0 20px 0' }}>Edit Team Member</h3>
+                
+                <div style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Full Name *:</label>
+                    <input 
+                      type="text" 
+                      value={editMemberName} 
+                      onChange={(e) => setEditMemberName(e.target.value)} 
+                      placeholder="e.g., John Doe" 
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} 
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Username *:</label>
+                    <input 
+                      type="text" 
+                      value={editingMember.username || ''} 
+                      onChange={(e) => setEditingMember({...editingMember, username: e.target.value})} 
+                      placeholder="e.g., johndoe" 
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} 
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Password *:</label>
+                    <input 
+                      type="password" 
+                      value={editingMember.password || ''} 
+                      onChange={(e) => setEditingMember({...editingMember, password: e.target.value})} 
+                      placeholder="Enter password" 
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} 
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Email *:</label>
+                    <input 
+                      type="email" 
+                      value={editMemberEmail} 
+                      onChange={(e) => setEditMemberEmail(e.target.value)} 
+                      placeholder="e.g., john.doe@phg.com" 
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} 
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Organization *:</label>
+                    <select 
+                      value={editingMember.org || 'PHG'} 
+                      onChange={(e) => setEditingMember({...editingMember, org: e.target.value})} 
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                    >
+                      {orgOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Access Level:</label>
+                    <select 
+                      value={editingMember.accessLevel || 'employee'} 
+                      onChange={(e) => setEditingMember({...editingMember, accessLevel: e.target.value})} 
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                    >
+                      <option value="employee">Employee</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Assigned Clients:</label>
+                    <Select 
+                      isMulti 
+                      options={clients.map(client => ({ value: client.facCode, label: `${client.name} (${client.facCode})` }))} 
+                      value={(editingMember.assignedClients || []).map(code => ({ value: code, label: code }))} 
+                      onChange={selected => setEditingMember({...editingMember, assignedClients: selected.map(opt => opt.value)})} 
+                      placeholder="Select clients..." 
+                      styles={{ menu: base => ({ ...base, zIndex: 9999 }) }} 
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={editingMember.notWorking || false} 
+                        onChange={(e) => setEditingMember({...editingMember, notWorking: e.target.checked})} 
+                        style={{ margin: 0 }} 
+                      />
+                      <span style={{ fontWeight: 'bold' }}>Not Working</span>
+                    </label>
+                  </div>
                 </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Email:</label>
-                  <input
-                    type="email"
-                    value={editMemberEmail}
-                    onChange={e => setEditMemberEmail(e.target.value)}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                   <button
                     onClick={cancelTeamMemberEdit}
-                    style={{ 
-                      background: '#6b7280', 
-                      color: 'white', 
-                      padding: '8px 16px', 
-                      borderRadius: '4px', 
-                      border: 'none', 
-                      cursor: 'pointer' 
+                    style={{
+                      background: '#6c757d',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px 20px',
+                      borderRadius: '6px',
+                      cursor: 'pointer'
                     }}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={saveTeamMemberEdit}
-                    style={{ 
-                      background: '#22c55e', 
-                      color: 'white', 
-                      padding: '8px 16px', 
-                      borderRadius: '4px', 
-                      border: 'none', 
-                      cursor: 'pointer' 
+                    style={{
+                      background: '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px 20px',
+                      borderRadius: '6px',
+                      cursor: 'pointer'
                     }}
                   >
-                    Save
+                    Update Team Member
                   </button>
                 </div>
               </div>
