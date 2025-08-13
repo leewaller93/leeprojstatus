@@ -2084,8 +2084,13 @@ function App() {
     setCurrentUser(user);
     setIsLoggedIn(true);
     
+    // For team members, start at 'demo' to show client selection dashboard
+    // For admin, start at 'demo' to show all clients
+    // For client users, go directly to their client
     if (user.role === 'client') {
       setCurrentClientId(user.clientId);
+    } else {
+      setCurrentClientId('demo'); // Show dashboard for team members and admin
     }
   };
 
@@ -2336,6 +2341,17 @@ function App() {
 
   // Show admin dashboard if admin user and no specific client selected
   if (currentUser.role === 'admin' && currentClientId === 'demo') {
+    return <AdminDashboard 
+      currentUser={currentUser} 
+      onLogout={handleLogout} 
+      setCurrentClientId={setCurrentClientId}
+      fetchPhases={fetchPhases}
+      fetchTeam={fetchTeam}
+    />;
+  }
+
+  // Show team member dashboard if team member and no specific client selected
+  if (currentUser.type === 'team_member' && currentClientId === 'demo') {
     return <AdminDashboard 
       currentUser={currentUser} 
       onLogout={handleLogout} 
